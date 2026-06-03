@@ -1,0 +1,82 @@
+{
+  "base_model": "E:\\deepseek\\models\\Qwen3-0.6B",
+  "data": "training/data/raw/golden.jsonl",
+  "trajectory_count": 197,
+  "example_count": 451,
+  "max_steps": 40,
+  "max_length": 1536,
+  "seed": 42,
+  "trainable_parameters": 10092544,
+  "total_parameters": 606142464,
+  "trainable_percent": 1.665,
+  "elapsed_seconds": 132.713,
+  "peak_vram_gb": 3.781,
+  "train_loss": 0.49895207956433296,
+  "log_history": [
+    {
+      "loss": 0.736,
+      "grad_norm": 2.1667346954345703,
+      "learning_rate": 0.00019863613034027224,
+      "epoch": 0.04434589800443459,
+      "step": 5
+    },
+    {
+      "loss": 0.8648,
+      "grad_norm": 2.476651430130005,
+      "learning_rate": 0.00018371664782625287,
+      "epoch": 0.08869179600886919,
+      "step": 10
+    },
+    {
+      "loss": 0.3691,
+      "grad_norm": 2.207313299179077,
+      "learning_rate": 0.0001546948158122427,
+      "epoch": 0.13303769401330376,
+      "step": 15
+    },
+    {
+      "loss": 0.4652,
+      "grad_norm": 4.249706268310547,
+      "learning_rate": 0.00011645945902807341,
+      "epoch": 0.17738359201773837,
+      "step": 20
+    },
+    {
+      "loss": 0.3441,
+      "grad_norm": 1.3413770198822021,
+      "learning_rate": 7.54514512859201e-5,
+      "epoch": 0.22172949002217296,
+      "step": 25
+    },
+    {
+      "loss": 0.4991,
+      "grad_norm": 2.323406219482422,
+      "learning_rate": 3.857872873103322e-5,
+      "epoch": 0.2660753880266075,
+      "step": 30
+    },
+    {
+      "loss": 0.0832,
+      "grad_norm": 1.244760274887085,
+      "learning_rate": 1.2052624879351104e-5,
+      "epoch": 0.31042128603104213,
+      "step": 35
+    },
+    {
+      "loss": 0.6301,
+      "grad_norm": 1.1554445028305054,
+      "learning_rate": 3.415506993330153e-7,
+      "epoch": 0.35476718403547675,
+      "step": 40
+    },
+    {
+      "train_runtime": 132.498,
+      "train_samples_per_second": 1.208,
+      "train_steps_per_second": 0.302,
+      "total_flos": 465902469120000.0,
+      "train_loss": 0.49895207956433296,
+      "epoch": 0.35476718403547675,
+      "step": 40
+    }
+  ]
+}

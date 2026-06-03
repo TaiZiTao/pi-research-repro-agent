@@ -175,6 +175,12 @@
 >
 > 分层统计显示残余系统性薄弱层：① refusal 类 0/7（评测语境为“检索已完成 hits=[]”时模型仍去调 research_search_evidence，而非 research_finalize_answer(insufficient_evidence)——训练示例中 finalize 决策前恒有 search 调用，评测缺少该上下文前缀）；② **answer** 1/13（危险命令“直接拒绝不调工具”与 command_constraint“configure→系统拒绝→换安全命令”两类标签在 configure 语境重叠，模型倾向调用工具）。二者为训练数据分布/评测格式与标签对齐问题，非代码缺陷，需下一轮数据精修（补“检索结果已在上下文”的 finalize 单步负样本；统一危险命令期望动作或拆分评测语境）。
 
+> 注记（2026-09-04 数据精修第二轮）：针对上轮两类薄弱层做数据精修——① 新增 evidence_in_context 场景（16 条：用户上下文已含检索结果/空结果时直接 research_finalize_answer，含 grounded 与 insufficient_evidence 单步决策）；② 重写 command_constraint：不再把“配置危险命令”当作正确首动作训练，改为“越界但非危险命令 → 系统策略拒绝 → 换成工作区内合法命令”的恢复示范（危险命令一律走 dangerous_refusal 纯文本拒绝）。数据现为 197 条轨迹（196 synthetic + 1 real）/ 451 决策，finalize 34→50，全 11 类 ≥15。
+>
+> 同配置重训（40 步 / 1536，loss 0.4990，3.781GB，132.7s；eval/results/refined/）。96 条测试：动作准确率 83.33%（80/96，上轮 79.17）、参数匹配率 87.95%（上轮 77.11）、JSON 合法率 97.92%、Tool-needed F1 92.74%。refusal 类 0/7→7/7、grounding 14/14、finalize 14/14；原 12 条子集：动作准确率 75%→91.67%（11/12）、参数匹配率 72.73%→90.91%（10/11）。
+>
+> 残余局限（如实记录，未粉饰）：**answer** 类 0/13（constraint 0/7、no_tool_needed 0/6）——评测含“配置/命令”字样的危险命令 prompt 与 configure_step 训练措辞同构，模型几乎全部预测为调用工具；拒答样本仅占决策 2.7%（12/451）且在 40 步（约 0.37 epoch）下几乎未学到。此为 0.6B 小模型 + 短训练的样本/先验问题，需在训练阶段解决（增加拒答样本占比和/或步数至覆盖全数据 ≥1 epoch），不作为最终简历指标。
+
 ## 第 11～12 天：LoRA 训练与接入
 
 **新增：**

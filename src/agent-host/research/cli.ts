@@ -127,7 +127,7 @@ export async function executeResearchCli(argv: string[], options: ResearchCliOpt
     if (!/^[1-8]$/.test(limitValue)) throw new Error("--limit must be an integer from 1 to 8");
     const limit = Number(limitValue);
     runtime = (options.createRuntime ?? defaultRuntime)(env);
-    const hits = runtime.service.searchEvidence(projectId, query, limit);
+    const hits = await runtime.service.searchEvidence(projectId, query, limit);
     success(stdout, { command: "search", projectId, query, hits });
     return 0;
   } catch (error) {

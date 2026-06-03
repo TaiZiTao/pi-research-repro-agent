@@ -48,7 +48,7 @@ test("executes evidence search against only the workspace-bound project", async 
   const calls = [];
   const [tool] = createResearchTools(project.workspacePath, {
     findByWorkspace: (cwd) => (cwd === project.workspacePath ? project : undefined),
-    searchEvidence: (...args) => {
+    searchEvidence: async (...args) => {
       calls.push(args);
       return hits;
     },

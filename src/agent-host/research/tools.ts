@@ -23,7 +23,7 @@ export function createResearchTools(cwd: string, service: ResearchToolService): 
       ),
       executionMode: "sequential",
       async execute(_toolCallId, input) {
-        const hits = service.searchEvidence(project.projectId, input.query, input.limit);
+        const hits = await service.searchEvidence(project.projectId, input.query, input.limit);
         return {
           content: [{ type: "text" as const, text: JSON.stringify({ projectId: project.projectId, hits }) }],
           details: { hits },

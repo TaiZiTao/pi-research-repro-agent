@@ -11,7 +11,7 @@ import { ResearchProjectNotFoundError, ResearchProjectService } from "./project-
 const SOURCE_BYTES = Buffer.from("%PDF-1.7\nservice test bytes must remain unchanged\n", "utf8");
 const SKILL_CONTENT = "---\nname: paper_analysis\n---\nUse evidence.\n";
 
-function fixture(t, runParser) {
+function fixture(t, runParser, runHybrid = async () => ({ ok: true, action: "build", denseAvailable: false })) {
   const root = mkdtempSync(path.join(tmpdir(), "pi-project-service-"));
   const researchRoot = path.join(root, "research");
   const skillsSourceRoot = path.join(root, "skills");
@@ -30,6 +30,7 @@ function fixture(t, runParser) {
     workerPath: "parse_pdf.py",
     skillsSourceRoot,
     runParser,
+    runHybrid,
     now: () => new Date("2026-09-03T12:34:56.000Z"),
     emit: (event) => events.push(event),
   });
@@ -156,7 +157,7 @@ test("evidence search requires an existing ready project", async (t) => {
   const context = fixture(t, validParser);
   const ready = await context.service.importPdf({ sourcePath: context.sourcePath });
 
-  assert.equal(context.service.searchEvidence(ready.projectId, "loss")[0].page, 2);
+  assert.equal((await context.service.searchEvidence(ready.projectId, "loss"))[0].page, 2);
   assert.throws(
     () => context.service.getProject("123e4567-e89b-42d3-a456-426614174000"),
     (error) => error instanceof ResearchProjectNotFoundError && error.name === "ResearchProjectNotFoundError",
@@ -166,9 +167,29 @@ test("evidence search requires an existing ready project", async (t) => {
     throw new Error("parser unavailable");
   });
   const failed = await failedContext.service.importPdf({ sourcePath: failedContext.sourcePath });
-  assert.throws(() => failedContext.service.searchEvidence(failed.projectId, "loss"), /ready/i);
-  assert.throws(
-    () => context.service.searchEvidence("223e4567-e89b-42d3-a456-426614174000", "loss"),
+  await assert.rejects(failedContext.service.searchEvidence(failed.projectId, "loss"), /ready/i);
+  await assert.rejects(
+    context.service.searchEvidence("223e4567-e89b-42d3-a456-426614174000", "loss"),
     ResearchProjectNotFoundError,
   );
+});
+
+test("builds and searches the hybrid index in the project evidence directory", async (t) => {
+  const calls = [];
+  const context = fixture(t, validParser, async (_python, worker, request) => {
+    calls.push([worker, request]);
+    if (request.action === "search")
+      return {
+        ok: true,
+        action: "search",
+        hits: [{ paperId: request.paperId, chunkId: "p1-c1", page: 1, text: "hybrid", score: 0.5 }],
+      };
+    return { ok: true, action: "build", denseAvailable: true };
+  });
+  const project = await context.service.importPdf({ sourcePath: context.sourcePath });
+  const hits = await context.service.searchEvidence(project.projectId, "semantic", 2);
+  assert.equal(calls[0][1].action, "build");
+  assert.equal(calls[0][1].indexDir, path.join(project.workspacePath, "evidence"));
+  assert.equal(calls[1][1].action, "search");
+  assert.equal(hits[0].text, "hybrid");
 });

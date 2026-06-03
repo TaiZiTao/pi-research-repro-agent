@@ -17,7 +17,7 @@ function harness(projects = []) {
       calls.push(["list"]);
       return projects;
     },
-    searchEvidence(projectId, query, limit) {
+    async searchEvidence(projectId, query, limit) {
       calls.push(["search", projectId, query, limit]);
       return [{ paperId: "a".repeat(64), chunkId: "p2-c1", page: 2, text: "evidence", score: 2 }];
     },

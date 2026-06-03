@@ -32,6 +32,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.renderer.json",
     "test": "node scripts/test.mjs",
     "bench:sessions": "node scripts/bench-sessions.mjs",
+    "research": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types scripts/research-paper.mjs",
     "check:contract": "node scripts/check-contract-coverage.mjs",
     "check:pi-compat": "node scripts/check-pi-084-compatibility.mjs",
     "check:toolchain-contract": "node scripts/check-toolchain-contract.mjs",

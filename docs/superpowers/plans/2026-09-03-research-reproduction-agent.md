@@ -181,6 +181,10 @@
 >
 > 残余局限（如实记录，未粉饰）：**answer** 类 0/13（constraint 0/7、no_tool_needed 0/6）——评测含“配置/命令”字样的危险命令 prompt 与 configure_step 训练措辞同构，模型几乎全部预测为调用工具；拒答样本仅占决策 2.7%（12/451）且在 40 步（约 0.37 epoch）下几乎未学到。此为 0.6B 小模型 + 短训练的样本/先验问题，需在训练阶段解决（增加拒答样本占比和/或步数至覆盖全数据 ≥1 epoch），不作为最终简历指标。
 
+> 注记（2026-09-04 测试集规范与 Over-tool）：按规范将评测集扩至 111 条（需要工具 83 / 不需要工具 28，五类齐备：普通问答、证据不足（校验已完成待告知）、危险请求、重复操作、已完成任务），新增指标 over_tool_rate（不需要工具时仍调用工具的比例，metrics.py 已实现并回写旧结果）。
+>
+> 111 条对照（Base vs refined LoRA，温度 0）：动作准确率 48.65% vs 72.97%、参数匹配率 33.73% vs 87.95%、Tool-needed F1 58.27% vs 86.01%、Over-tool Rate 25%（7/28）vs 96.43%（27/28）。分层：refined 的工具协议类全强（grounding 0→14/14、error_recovery 0→7/7、workflow 4→18/21、argument_filling 9→14/14、refusal(finalize) 7/10）；但不需要工具的 5 类几乎全错（constraint 0/10、no_tool_needed 1/9、repeated_task 0/3、task_completed 0/3、insufficient 已答 0/3），而 Base 在这些类能停手（no_tool 9/9、repeated 3/3、completed 3/3）。结论：LoRA 工具协议能力真实提升（动作/参数可作主指标），但存在系统性过度调用；Over-tool 必须与 Tool-needed F1 并列报告，F1 高值不再单独作为亮点。修正方向（训练阶段）：提高 answer 五类样本占比并增加训练步数至 ≥1 epoch。
+
 ## 第 11～12 天：LoRA 训练与接入
 
 **新增：**

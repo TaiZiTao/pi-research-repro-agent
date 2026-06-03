@@ -56,6 +56,8 @@ def score_predictions(
     tp = fp = fn = 0
     json_valid = action_correct = argument_correct = 0
     tool_cases = 0
+    answer_cases = 0
+    over_tool = 0
 
     for case in cases:
         parsed = parse_decision(outputs.get(case["id"], ""))
@@ -70,6 +72,13 @@ def score_predictions(
             fp += 1
         elif expected_tool:
             fn += 1
+
+        if not expected_tool:
+            # Over-tool rate: how often the model calls a tool when a plain
+            # answer (refusal, direct answer) is the expected action.
+            answer_cases += 1
+            if predicted_tool:
+                over_tool += 1
 
         action_ok = parsed["action"] == expected_action
         if parsed["json_valid"]:
@@ -111,6 +120,8 @@ def score_predictions(
             "action_accuracy": _safe_ratio(action_correct, total),
             "argument_match_rate": _safe_ratio(argument_correct, tool_cases),
             "tool_needed_f1": f1,
+            "answer_case_count": answer_cases,
+            "over_tool_rate": _safe_ratio(over_tool, answer_cases),
         },
         details,
     )

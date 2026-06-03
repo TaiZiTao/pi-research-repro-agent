@@ -11,7 +11,9 @@
     "elapsed_seconds": 16.949,
     "peak_vram_gb": 1.525,
     "temperature": 0,
-    "max_new_tokens": 192
+    "max_new_tokens": 192,
+    "answer_case_count": 13,
+    "over_tool_rate": 0.0769
   },
   "details": [
     {

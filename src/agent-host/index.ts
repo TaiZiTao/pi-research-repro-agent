@@ -13,6 +13,7 @@ import { browserCapabilityRuntime } from "./browser-capability-runtime";
 import { syncBrowserToolsForAllSessions } from "./rpc-manager";
 import { readPiRuntimeVersion } from "./runtime-version";
 import { applyManagedProcessOwnerIdentity } from "./managed-process/owner-identity";
+import { closeResearchRuntime, initializeResearchRuntime } from "./research/runtime";
 
 const piRuntimeVersion = readPiRuntimeVersion();
 
@@ -27,6 +28,13 @@ function log(message: string): void {
   } catch {
     console.log(`[agent-host] ${message}`);
   }
+}
+
+try {
+  initializeResearchRuntime();
+  log("research runtime initialized");
+} catch (error) {
+  log(`research runtime unavailable: ${error instanceof Error ? error.message : String(error)}`);
 }
 
 // Electron utilityProcess parent messaging
@@ -97,6 +105,7 @@ if (parentPort) {
       return;
     }
     if (msg?.type === "shutdown") {
+      closeResearchRuntime();
       stopWatcher();
       restoreGitRunner();
       void stopHandlers().finally(() => process.exit(0));

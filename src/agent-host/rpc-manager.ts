@@ -34,6 +34,8 @@ import { getDesktopSessionToolNames, setDesktopSessionToolNames } from "./sessio
 import { peekManagedProcessService } from "./managed-process/runtime";
 import { createManagedProcessToolDefinitions } from "./managed-process/tools";
 import { installManagedProcessSessionRedaction } from "./managed-process/session-redaction";
+import { peekResearchProjectService } from "./research/runtime";
+import { createResearchTools } from "./research/tools";
 
 // ============================================================================
 // Types
@@ -1451,6 +1453,7 @@ export async function startRpcSession(
       createBashToolDefinition(cwd, bashOptions),
       ...createDesktopSearchToolDefinitions(cwd, executionContext, toolchainRuntime),
       ...createBrowserToolDefinitions(),
+      ...(peekResearchProjectService() ? createResearchTools(cwd, peekResearchProjectService()!) : []),
       ...(peekManagedProcessService()
         ? createManagedProcessToolDefinitions(
             cwd,

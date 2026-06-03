@@ -17,7 +17,13 @@ import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent
 import { Type } from "typebox";
 import type { RepositoryCandidate } from "../../../../mcp/research-acquisition/types.ts";
 import type { PaperChunk, ResearchProject } from "../../../shared/research/types.ts";
-import { DEFAULT_STEP_TIMEOUT_MS, ReproductionExecutor, resetFailedSteps, type RunCommand } from "./executor.ts";
+import {
+  assertCommandAllowed,
+  DEFAULT_STEP_TIMEOUT_MS,
+  ReproductionExecutor,
+  resetFailedSteps,
+  type RunCommand,
+} from "./executor.ts";
 import { reproductionPaths } from "./paths.ts";
 import { createReproductionPlan, nextPendingStep } from "./planner.ts";
 import { buildReproductionReport, renderReproductionMarkdown } from "./report.ts";
@@ -32,6 +38,8 @@ const MAX_ARTIFACT_NAMES = 100;
 const MAX_ARTIFACT_DEPTH = 8;
 /** https prefix required of any model-supplied official repository URL. */
 const HTTPS_PREFIX = "https://";
+const SHELL_CONTROL_PATTERN = /(?:&&|\|\||[|;<>`\r\n])/;
+const ALLOWED_EXECUTABLES = new Set(["git", "node", "npm", "npm.cmd", "npx", "npx.cmd", "python", "python.exe"]);
 
 export interface ReproductionToolDependencies {
   /** Ready project bound to the current workspace (readiness is caller-gated). */
@@ -124,7 +132,24 @@ function stepView(step: ReproductionStep) {
     exitCode: step.exitCode,
     artifactRef: step.artifactRef,
     error: step.error,
+    command: step.command,
   };
+}
+
+function assertConfigurableCommand(command: string): string {
+  const trimmed = command.trim();
+  assertCommandAllowed(trimmed);
+  if (SHELL_CONTROL_PATTERN.test(trimmed)) {
+    throw new Error("command denied: shell chaining and redirection are not allowed");
+  }
+  const executable = trimmed.split(/\s+/, 1)[0].toLowerCase();
+  if (!ALLOWED_EXECUTABLES.has(executable)) {
+    throw new Error("command denied: executable is not allow-listed");
+  }
+  if (/(?:^|[\\/])\.\.(?:[\\/]|$)/.test(trimmed)) {
+    throw new Error("command denied: parent-directory traversal is not allowed");
+  }
+  return trimmed;
 }
 
 /** First step whose status changed between the before/after plans. */
@@ -186,6 +211,14 @@ const verifyParameters = Type.Object(
 );
 
 const reportParameters = Type.Object({}, { additionalProperties: false });
+
+const configureStepParameters = Type.Object(
+  {
+    stepId: Type.String({ minLength: 1, maxLength: 64 }),
+    command: Type.String({ minLength: 1, maxLength: 1000 }),
+  },
+  { additionalProperties: false },
+);
 
 /**
  * Reproduction Pi tools for a ready paper project. Every result is bounded
@@ -332,6 +365,38 @@ export function createReproductionTools(cwd: string, deps: ReproductionToolDepen
           const report = buildReproductionReport(plan, artifactNames, deps.now ?? (() => new Date()));
           const markdown = renderReproductionMarkdown(report);
           return { markdown };
+        });
+      },
+    }),
+    defineTool<typeof configureStepParameters, unknown>({
+      name: "research_reproduction_configure_step",
+      label: "configure reproduction step",
+      description:
+        "Attach one bounded allow-listed command to the current pending reproduction step. " +
+        "Shell chaining, redirection and parent-directory traversal are rejected.",
+      parameters: configureStepParameters,
+      executionMode: "sequential",
+      async execute(_toolCallId, input) {
+        return runReproductionTool(sensitivePaths, async () => {
+          const plan = readPlan();
+          if (plan.phase !== "planned" && plan.phase !== "running") {
+            throw new Error("reproduction step can only be configured while planned or running");
+          }
+          const pending = nextPendingStep(plan);
+          if (!pending || pending.id !== input.stepId) {
+            throw new Error("only the current pending reproduction step can be configured");
+          }
+          const configured: ReproductionStep = {
+            ...pending,
+            command: assertConfigurableCommand(input.command),
+          };
+          const updated: ReproductionPlan = {
+            ...plan,
+            updatedAt: (deps.now ?? (() => new Date()))().toISOString(),
+            steps: plan.steps.map((step) => (step.id === configured.id ? configured : step)),
+          };
+          deps.store.put(updated);
+          return { phase: updated.phase, step: stepView(configured) };
         });
       },
     }),

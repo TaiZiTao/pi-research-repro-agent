@@ -109,10 +109,10 @@ function payload(result) {
   return JSON.parse(result.content[0].text);
 }
 
-test("registers four bounded sequential reproduction tools; no download tool", (t) => {
+test("registers bounded sequential reproduction tools including step configuration", (t) => {
   const { tools } = makeTools(t);
-  assert.equal(tools.length, 4);
-  const [planTool, executeTool, verifyTool, reportTool] = tools;
+  assert.equal(tools.length, 5);
+  const [planTool, executeTool, verifyTool, reportTool, configureTool] = tools;
 
   for (const tool of tools) {
     assert.equal(tool.executionMode, "sequential");
@@ -139,6 +139,8 @@ test("registers four bounded sequential reproduction tools; no download tool", (
 
   assert.equal(reportTool.name, "research_reproduction_report");
   assert.deepEqual(Object.keys(reportTool.parameters.properties), []);
+  assert.equal(configureTool.name, "research_reproduction_configure_step");
+  assert.deepEqual(Object.keys(configureTool.parameters.properties), ["stepId", "command"]);
   assert.equal(
     tools.some((tool) => tool.name.includes("download")),
     false,
@@ -216,7 +218,7 @@ test("begin-run and next-step run command steps and leave agent steps pending", 
     return { exitCode: 0, stdout: "ok", stderr: "" };
   };
   const { store, workspace, tools } = makeTools(t, runner);
-  const [, executeTool] = tools;
+  const [, executeTool, , , configureTool] = tools;
   store.put(
     planWith([
       step({ id: "step-1", title: "train", command: "python train.py" }),
@@ -239,6 +241,7 @@ test("begin-run and next-step run command steps and leave agent steps pending", 
     exitCode: 0,
     artifactRef: "logs/step-1.log",
     error: null,
+    command: "python train.py",
   });
 
   assert.equal(calls.length, 1);
@@ -253,6 +256,14 @@ test("begin-run and next-step run command steps and leave agent steps pending", 
   assert.equal(needsAgent.step.status, "pending");
   assert.equal(store.get(PROJECT_ID).steps[1].status, "pending");
   assert.equal(calls.length, 1, "commandless steps never call the runner");
+
+  const configured = payload(
+    await configureTool.execute("call-4", { stepId: "step-2", command: "node --version" }, signal()),
+  );
+  assert.equal(configured.step.command, "node --version");
+  const secondRun = payload(await executeTool.execute("call-5", { action: "next-step" }, signal()));
+  assert.equal(secondRun.step.id, "step-2");
+  assert.equal(secondRun.step.status, "succeeded");
 });
 
 test("verify accepts a fully succeeded run and completes it", async (t) => {

@@ -25,6 +25,8 @@ function step(partial) {
     status: "pending",
     exitCode: null,
     artifactRef: null,
+    artifactBytes: null,
+    artifactSha256: null,
     error: null,
     ...partial,
   };
@@ -145,9 +147,11 @@ test("runCommandBounded wraps runner failures in bounded errors", async () => {
 test("writeStepLog writes bounded logs and returns a portable relative ref", async (t) => {
   const { paths } = fixture(t);
   await mkdir(paths.artifactsRoot, { recursive: true });
-  const ref = await writeStepLog(paths.artifactsRoot, "step-1", "line".repeat(200000));
-  assert.equal(ref, "logs/step-1.log");
-  const content = await readFile(path.join(paths.artifactsRoot, ref), "utf8");
+  const artifact = await writeStepLog(paths.artifactsRoot, "step-1", "line".repeat(200000));
+  assert.equal(artifact.ref, "logs/step-1.log");
+  assert.ok(artifact.bytes > 0);
+  assert.equal(artifact.sha256.length, 64);
+  const content = await readFile(path.join(paths.artifactsRoot, artifact.ref), "utf8");
   assert.ok(content.length <= 200 * 1024);
 });
 
@@ -189,7 +193,7 @@ test("runs steps with breakpoint resume and needs-agent handling", async (t) => 
   assert.ok(calls[0].timeoutMs > 0);
 
   const finished = await executor.verify(third.plan, { accepted: true });
-  assert.equal(finished.phase, "completed");
+  assert.equal(finished.phase, "running", "pending agent work cannot be accepted as complete");
   assert.deepEqual(store.get(PROJECT_ID), finished);
 });
 

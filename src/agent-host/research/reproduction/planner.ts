@@ -242,6 +242,8 @@ function buildSteps(repository: ReproductionRepository | null): ReproductionStep
     status: "pending",
     exitCode: null,
     artifactRef: null,
+    artifactBytes: null,
+    artifactSha256: null,
     error: null,
   }));
 }

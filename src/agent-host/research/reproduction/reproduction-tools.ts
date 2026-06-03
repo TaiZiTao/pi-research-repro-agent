@@ -2,7 +2,7 @@
  * Pi tools that drive the research reproduction workflow
  * (src/agent-host/research/reproduction).
  *
- * Four bounded, sequential tools let the agent plan a reproduction of the
+ * Bounded, sequential tools let the agent plan a reproduction of the
  * current paper from its evidence chunks, run the plan's step commands inside
  * the isolated reproduction workspace, verify the run with bounded repair
  * rounds, and render the final report.
@@ -29,6 +29,7 @@ import { createReproductionPlan, nextPendingStep } from "./planner.ts";
 import { buildReproductionReport, renderReproductionMarkdown } from "./report.ts";
 import type { ReproductionStore } from "./store.ts";
 import type { ReproductionPlan, ReproductionStep } from "./types.ts";
+import { verifyReproductionPlan } from "./verifier.ts";
 
 /** Upper bound of a tool-level error message (characters). */
 const MAX_TOOL_ERROR_CHARS = 500;
@@ -203,7 +204,6 @@ const executeParameters = Type.Object(
 
 const verifyParameters = Type.Object(
   {
-    accepted: Type.Boolean(),
     reason: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
     repair: Type.Optional(Type.Boolean()),
   },
@@ -330,20 +330,57 @@ export function createReproductionTools(cwd: string, deps: ReproductionToolDepen
       name: "research_reproduction_verify",
       label: "verify reproduction run",
       description:
-        "Verify the running reproduction plan. accepted=true completes the plan when no step failed. " +
-        "accepted=false with repair=true resets failed steps (running phase only) and starts another " +
-        "repair round; at most 3 rounds are allowed before the plan stays blocked. reason is optional " +
-        "and bounded. Returns phase, repairRoundsUsed and the bounded plan error.",
+        "Deterministically verify the running reproduction plan from step state and real artifact hashes. " +
+        "Pending, failed, missing or modified artifacts cannot complete. repair=true resets repairable " +
+        "steps for another bounded round; the model cannot self-declare acceptance.",
       parameters: verifyParameters,
       executionMode: "sequential",
       async execute(_toolCallId, input) {
         return runReproductionTool(sensitivePaths, async () => {
           const plan = readPlan();
-          const repaired = input.repair === true && plan.phase === "running" ? resetFailedSteps(plan) : plan;
-          const verified = await executor().verify(repaired, { accepted: input.accepted, reason: input.reason });
+          const validation = verifyReproductionPlan(plan, paths.artifactsRoot);
+          if (!validation.accepted) {
+            const repairable = new Set(
+              validation.invalidStepIds.filter((id) => {
+                const step = plan.steps.find((candidate) => candidate.id === id);
+                return step?.status === "failed" || step?.status === "succeeded";
+              }),
+            );
+            if (input.repair !== true || repairable.size === 0 || plan.phase !== "running") {
+              return {
+                accepted: false,
+                phase: plan.phase,
+                repairRoundsUsed: plan.repairRoundsUsed,
+                errors: validation.errors,
+              };
+            }
+            const invalidated: ReproductionPlan = {
+              ...plan,
+              steps: plan.steps.map((step) =>
+                repairable.has(step.id)
+                  ? { ...step, status: "failed" as const, error: validation.errors.join("; ").slice(0, 500) }
+                  : step,
+              ),
+            };
+            const repaired = resetFailedSteps(invalidated);
+            const verified = await executor().verify(repaired, {
+              accepted: false,
+              reason: input.reason ?? validation.errors.join("; "),
+            });
+            return {
+              accepted: false,
+              phase: verified.phase,
+              repairRoundsUsed: verified.repairRoundsUsed,
+              errors: validation.errors,
+              error: verified.error,
+            };
+          }
+          const verified = await executor().verify(plan, { accepted: true });
           return {
+            accepted: true,
             phase: verified.phase,
             repairRoundsUsed: verified.repairRoundsUsed,
+            errors: [],
             error: verified.error,
           };
         });

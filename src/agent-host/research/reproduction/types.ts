@@ -25,6 +25,9 @@ export interface ReproductionStep {
   exitCode: number | null;
   /** Artifact path relative to the artifacts root, or null when none exists. */
   artifactRef: string | null;
+  /** Size and digest captured when the artifact was written. */
+  artifactBytes: number | null;
+  artifactSha256: string | null;
   /** Bounded step error message, or null while the step has not failed. */
   error: string | null;
 }

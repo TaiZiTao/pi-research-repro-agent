@@ -17,6 +17,7 @@
  *    are only re-run after an explicit repair round.
  */
 
+import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { ReproductionPaths } from "./paths.ts";
@@ -141,14 +142,23 @@ export async function runCommandBounded(
 }
 
 /** Write bounded step output to <artifactsRoot>/logs/<stepId>.log, idempotent. */
-export async function writeStepLog(artifactsRoot: string, stepId: string, text: string): Promise<string> {
+export async function writeStepLog(
+  artifactsRoot: string,
+  stepId: string,
+  text: string,
+): Promise<{ ref: string; bytes: number; sha256: string }> {
   const logsRoot = path.join(artifactsRoot, "logs");
   await mkdir(logsRoot, { recursive: true });
   const fileName = stepId + ".log";
   const fullPath = path.join(logsRoot, fileName);
   const boundedText = text.length <= MAX_STEP_LOG_BYTES ? text : text.slice(0, MAX_STEP_LOG_BYTES);
-  await writeFile(fullPath, boundedText, "utf8");
-  return path.relative(artifactsRoot, fullPath).split(path.sep).join("/");
+  const content = Buffer.from(boundedText, "utf8");
+  await writeFile(fullPath, content);
+  return {
+    ref: path.relative(artifactsRoot, fullPath).split(path.sep).join("/"),
+    bytes: content.byteLength,
+    sha256: createHash("sha256").update(content).digest("hex"),
+  };
 }
 
 function timestamp(now: () => Date): string {
@@ -159,7 +169,15 @@ function timestamp(now: () => Date): string {
 export function resetFailedSteps(plan: ReproductionPlan): ReproductionPlan {
   const steps = plan.steps.map((step) =>
     step.status === "failed"
-      ? { ...step, status: "pending" as const, exitCode: null, artifactRef: null, error: null }
+      ? {
+          ...step,
+          status: "pending" as const,
+          exitCode: null,
+          artifactRef: null,
+          artifactBytes: null,
+          artifactSha256: null,
+          error: null,
+        }
       : step,
   );
   return { ...plan, steps };
@@ -260,16 +278,25 @@ export class ReproductionExecutor {
       cwd: this.#paths.workspace,
       timeoutMs: this.#timeoutMs(),
     });
-    const logRef = await writeStepLog(this.#paths.artifactsRoot, runningStep.id, outcome.output);
+    const log = await writeStepLog(this.#paths.artifactsRoot, runningStep.id, outcome.output);
 
     const finished: ReproductionStep =
       outcome.exitCode === 0
-        ? { ...runningStep, status: "succeeded", exitCode: 0, artifactRef: logRef }
+        ? {
+            ...runningStep,
+            status: "succeeded",
+            exitCode: 0,
+            artifactRef: log.ref,
+            artifactBytes: log.bytes,
+            artifactSha256: log.sha256,
+          }
         : {
             ...runningStep,
             status: "failed",
             exitCode: outcome.exitCode,
-            artifactRef: logRef,
+            artifactRef: log.ref,
+            artifactBytes: log.bytes,
+            artifactSha256: log.sha256,
             error: bounded(
               "step " + runningStep.id + " failed with exit code " + outcome.exitCode + ": " + outcome.output,
               MAX_STEP_ERROR_CHARS,
@@ -292,7 +319,8 @@ export class ReproductionExecutor {
     if (isTerminal(plan.phase)) throw new Error("reproduction plan is already terminal");
     assertReproductionTransition(plan.phase, "verifying");
     const hasFailed = plan.steps.some((step) => step.status === "failed");
-    const ok = options.accepted && !hasFailed;
+    const hasIncomplete = plan.steps.some((step) => step.status !== "succeeded" && step.status !== "skipped");
+    const ok = options.accepted && !hasFailed && !hasIncomplete;
     const reason = bounded((options.reason ?? "").trim(), MAX_REPRODUCTION_ERROR_CHARS);
 
     if (ok) {

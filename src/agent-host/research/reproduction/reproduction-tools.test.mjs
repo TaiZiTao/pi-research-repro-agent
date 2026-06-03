@@ -29,6 +29,8 @@ function step(partial = {}) {
     status: "pending",
     exitCode: null,
     artifactRef: null,
+    artifactBytes: null,
+    artifactSha256: null,
     error: null,
     ...partial,
   };
@@ -134,7 +136,7 @@ test("registers bounded sequential reproduction tools including step configurati
   assert.deepEqual(Object.keys(executeTool.parameters.properties), ["action"]);
 
   assert.equal(verifyTool.name, "research_reproduction_verify");
-  assert.deepEqual(Object.keys(verifyTool.parameters.properties), ["accepted", "reason", "repair"]);
+  assert.deepEqual(Object.keys(verifyTool.parameters.properties), ["reason", "repair"]);
   assert.equal(verifyTool.parameters.properties.reason.maxLength, 500);
 
   assert.equal(reportTool.name, "research_reproduction_report");
@@ -257,6 +259,10 @@ test("begin-run and next-step run command steps and leave agent steps pending", 
   assert.equal(store.get(PROJECT_ID).steps[1].status, "pending");
   assert.equal(calls.length, 1, "commandless steps never call the runner");
 
+  const incomplete = payload(await tools[2].execute("call-incomplete", {}, signal()));
+  assert.equal(incomplete.accepted, false);
+  assert.equal(incomplete.phase, "running");
+
   const configured = payload(
     await configureTool.execute("call-4", { stepId: "step-2", command: "node --version" }, signal()),
   );
@@ -277,7 +283,8 @@ test("verify accepts a fully succeeded run and completes it", async (t) => {
   const done = payload(await executeTool.execute("call-3", { action: "next-step" }, signal()));
   assert.equal(done.action, "done");
 
-  const verified = payload(await verifyTool.execute("call-4", { accepted: true }, signal()));
+  const verified = payload(await verifyTool.execute("call-4", {}, signal()));
+  assert.equal(verified.accepted, true);
   assert.equal(verified.phase, "completed");
   assert.equal(verified.repairRoundsUsed, 0);
   assert.equal(verified.error, null);
@@ -298,7 +305,7 @@ test("verify with repair resets failed steps, increments rounds, then blocks", a
     assert.match(ran.step.error, /failed with exit code 1/);
 
     const verified = payload(
-      await verifyTool.execute("call-verify", { accepted: false, reason: "metrics mismatch", repair: true }, signal()),
+      await verifyTool.execute("call-verify", { reason: "metrics mismatch", repair: true }, signal()),
     );
     assert.equal(verified.phase, "running");
     assert.equal(verified.repairRoundsUsed, expectedRound);
@@ -310,9 +317,7 @@ test("verify with repair resets failed steps, increments rounds, then blocks", a
 
   const failed = payload(await executeTool.execute("call-last", { action: "next-step" }, signal()));
   assert.equal(failed.step.status, "failed");
-  const blocked = payload(
-    await verifyTool.execute("call-block", { accepted: false, reason: "still failing", repair: true }, signal()),
-  );
+  const blocked = payload(await verifyTool.execute("call-block", { reason: "still failing", repair: true }, signal()));
   assert.equal(blocked.phase, "blocked");
   assert.equal(blocked.repairRoundsUsed, 3);
   assert.ok(blocked.error.length > 0 && blocked.error.length <= 500);
@@ -325,7 +330,7 @@ test("report renders bounded markdown that marks Agent 最小复现 and lists ar
   store.put(planWith([step({ id: "step-1", title: "train", command: "python train.py" })]));
   await executeTool.execute("call-1", { action: "begin-run" }, signal());
   await executeTool.execute("call-2", { action: "next-step" }, signal());
-  await verifyTool.execute("call-3", { accepted: true }, signal());
+  await verifyTool.execute("call-3", {}, signal());
 
   const result = await reportTool.execute("call-4", {}, signal());
   const output = payload(result);
@@ -363,7 +368,7 @@ test("execute, verify and report fail with bounded errors when no plan exists", 
   for (const result of [
     await executeTool.execute("call-1", { action: "begin-run" }, signal()),
     await executeTool.execute("call-2", { action: "next-step" }, signal()),
-    await verifyTool.execute("call-3", { accepted: true }, signal()),
+    await verifyTool.execute("call-3", {}, signal()),
     await reportTool.execute("call-4", {}, signal()),
   ]) {
     const output = payload(result);

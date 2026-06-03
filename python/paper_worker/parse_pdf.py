@@ -20,8 +20,33 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def _utf16_units(char: str) -> int:
+    # JS string .length counts UTF-16 code units; astral characters (math
+    # symbols, emoji) count as two. Python len() counts code points, so slicing
+    # by code points can produce chunks whose JS length exceeds the bound and
+    # would be rejected by the TypeScript validator.
+    return 2 if ord(char) > 0xFFFF else 1
+
+
 def _chunks(text: str) -> list[str]:
-    return [text[offset : offset + MAX_CHUNK_CHARS] for offset in range(0, len(text), MAX_CHUNK_CHARS)]
+    """Split text so every chunk is at most MAX_CHUNK_CHARS UTF-16 units.
+
+    Boundaries never split a surrogate pair. An empty input yields no chunks.
+    """
+    pieces: list[str] = []
+    start = 0
+    units = 0
+    for index, char in enumerate(text):
+        char_units = _utf16_units(char)
+        if units > 0 and units + char_units > MAX_CHUNK_CHARS:
+            pieces.append(text[start:index])
+            start = index
+            units = 0
+        units += char_units
+    tail = text[start:]
+    if tail:
+        pieces.append(tail)
+    return pieces
 
 
 def parse_pdf(source: Path) -> list[dict[str, object]]:

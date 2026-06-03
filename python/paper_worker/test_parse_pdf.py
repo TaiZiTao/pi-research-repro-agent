@@ -1,4 +1,5 @@
 import hashlib
+import importlib.util
 import json
 import subprocess
 import sys
@@ -10,6 +11,14 @@ import pymupdf
 
 
 WORKER = Path(__file__).with_name("parse_pdf.py")
+
+
+def load_worker():
+    spec = importlib.util.spec_from_file_location("parse_pdf_worker", WORKER)
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
 
 
 class ParsePdfTest(unittest.TestCase):
@@ -93,6 +102,25 @@ class ParsePdfTest(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("failed to parse pdf", result.stderr.lower())
             self.assertFalse(output.exists())
+
+
+class ChunkingContractTest(unittest.TestCase):
+    def test_chunks_respect_js_utf16_length_bound_and_do_not_split_surrogates(self) -> None:
+        worker = load_worker()
+        astral = "U0001D400"  # mathematical bold capital A (2 UTF-16 units)
+        text = ("alpha " * 250) + (astral * 400)
+        chunks = worker._chunks(text)
+        self.assertTrue(chunks)
+        self.assertEqual("".join(chunks), text)
+        for chunk in chunks:
+            units = sum(2 if ord(char) > 0xFFFF else 1 for char in chunk)
+            self.assertLessEqual(units, 1200)
+            self.assertGreater(units, 0)
+
+    def test_empty_and_short_texts(self) -> None:
+        worker = load_worker()
+        self.assertEqual(worker._chunks(""), [])
+        self.assertEqual(worker._chunks("short"), ["short"])
 
 
 if __name__ == "__main__":

@@ -48,10 +48,11 @@ def validate_trajectory(trajectory: dict[str, Any]) -> list[str]:
         errors.append("source must be real or synthetic")
 
     tools = trajectory.get("tools")
-    if not isinstance(tools, list) or not tools:
-        errors.append("tools must be a non-empty list")
+    if not isinstance(tools, list):
+        errors.append("tools must be a list")
         tool_names: set[str] = set()
     else:
+        # Plain-answer trajectories legitimately carry an empty tool list.
         tool_names = {
             tool.get("name")
             for tool in tools

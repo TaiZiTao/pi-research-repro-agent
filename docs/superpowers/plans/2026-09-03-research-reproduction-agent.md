@@ -166,6 +166,8 @@
 - [x] 运行格式、重复、泄漏和参数合法性检查后提交。
 
 > 注记（2026-09-04）：已新增无第三方依赖的轨迹 Schema、递归路径/Token 脱敏、工具调用配对与未知工具校验；依据真实复现 smoke 记录 1 条真实轨迹，并确定性生成 29 条明确标记为 synthetic 的轨迹。`training/data/raw/golden.jsonl` 共 30 条，覆盖 6 类场景且全部通过校验。自动在线采集尚未开始。
+>
+> 注记（2026-09-04 数据均衡扩充）：修复评测指标口径后，为消除训练数据不均衡（原 141 决策中论文搜索/下载/仓库搜索/报告为 0 类、`__answer__` 语义混杂），将确定性生成器扩展为 14 类场景：新增 acquisition 流程（搜索→下载→仓库）、论文搜索 vs 当前论文证据检索意图区分、配置 vs 执行、校验修复 vs 报告、纯危险命令拒绝（不调工具）、无需工具直接回答、复现计划（有/无官方仓库）。**`golden.jsonl` 现为 181 条轨迹（180 synthetic + 1 real），经 `prepare_sft` 展开为 427 个下一步决策**，分布（2026-09-04 实测）：search_papers 32、download_paper 24、search_repositories 21、search_evidence 42、finalize_answer 34、plan_reproduction 16、configure_step 49、execute 34、verify 57、report 15、`__answer__` 103（24%），全部 11 类 ≥15、无 0 类。配套新增 `training/analyze_dataset.py`（展开分布统计）与 `eval/generate_cases.py`；**独立测试集 `eval/cases.json` 扩至 96 条**（保留原 12 条，新增 84 条分层变体，11 类每类 ≥6，含意图负样本对）。Schema 允许空工具列表（纯回答轨迹），危险命令样例在 build 前经脱敏（与既有流程一致）。步骤 164/165 仍未勾选：验证/测试集防泄漏拆分需在训练前正式划分（当前测试集与训练措辞不重复但同分布）；800～1200 条规模未达到——按已确认口径改为“展开后决策分布均衡”（427 决策）为准，后续可用真实会话日志替换/扩充。⚠️ 待办：1 条真实轨迹（scenarios/reproduction_error_repair_001.json）首条 user 消息存在历史编码乱码，未在本轮修改以免污染真实样本，训练前需清洗或排除。
 
 ## 第 11～12 天：LoRA 训练与接入
 

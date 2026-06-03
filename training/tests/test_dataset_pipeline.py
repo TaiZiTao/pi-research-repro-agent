@@ -51,10 +51,14 @@ class DatasetPipelineTest(unittest.TestCase):
         self.assertTrue(any("missing_tool" in error for error in validate_trajectory(sanitized)))
 
         generated = generate_synthetic_trajectories()
-        self.assertEqual(len(generated), 29)
-        self.assertEqual(len({record["id"] for record in generated}), 29)
+        self.assertGreaterEqual(len(generated), 120)
+        self.assertLessEqual(len(generated), 200)
+        self.assertEqual(len({record["id"] for record in generated}), len(generated))
         self.assertTrue(all(record["source"] == "synthetic" for record in generated))
-        self.assertTrue(all(validate_trajectory(record) == [] for record in generated))
+        # build_dataset sanitizes before validating; mirror that exact flow.
+        self.assertTrue(
+            all(validate_trajectory(sanitize_trajectory(record)) == [] for record in generated)
+        )
 
 
 if __name__ == "__main__":

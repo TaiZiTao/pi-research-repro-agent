@@ -8,15 +8,18 @@
 
 **Tech Stack:** TypeScript、Pi Agent、Python、PyMuPDF、SQLite、MCP、BM25、多语言 Embedding、PyTorch/Transformers/PEFT/QLoRA。
 
+> **进度（2026-09-03 回填）**：✅ 底座 + 第 1～3 天已完成（科研模块 TS 测试 39/39 通过）；⬜ 第 4～5 天（MCP）起未开始。**约定：每完成一步立即勾选，并在提交时同步本文件。**
+
 ---
 
 ## 已完成底座（直接复用）
 
-- PDF 校验、复制、解析和页码切块。
-- SQLite 项目持久化与隔离工作区。
-- 3 个 Skill 骨架。
-- Pi `research_search_evidence` 工具。
-- PDF 导入、列表和检索 CLI。
+- [x] PDF 校验、复制、解析和页码切块。
+- [x] SQLite 项目持久化与隔离工作区。
+- [x] 科研项目状态机（`created → acquiring → ingesting → ready | failed | cancelled`）与事件记录。
+- [x] 3 个 Skill 骨架。
+- [x] Pi `research_search_evidence` 工具。
+- [x] PDF 导入、列表和检索 CLI。
 
 相关目录：
 
@@ -35,20 +38,22 @@
 
 **新增：**
 
-- `python/paper_worker/embed_text.py`
-- `src/agent-host/research/hybrid-index.ts`
-- 对应测试文件
+- `python/paper_worker/embed_text.py` ⚠️ 实现差异：实际落地为 `python/paper_worker/rag/` 包（`embedding.py` / `keyword_store.py` / `fusion.py` / `retriever.py` / `models.py`）与 `python/paper_worker/hybrid_search.py`
+- `src/agent-host/research/hybrid-index.ts` ⚠️ 实现差异：实际落地为 `src/agent-host/research/hybrid-worker.ts`
+- 对应测试文件（TS `hybrid-worker.test.mjs`；Python `test_rag.py`）
 
 **步骤：**
 
-- [ ] 先写失败测试：章节、页码、块 ID 和空文本处理。
-- [ ] 将当前关键词检索升级为 BM25，并保留纯关键词匹配作为最终回退。
-- [ ] 接入轻量级多语言 Embedding，持久化论文向量。
-- [ ] 使用 RRF 融合稀疏与向量结果，返回 Top-K 证据。
-- [ ] 用中文问题检索英文超分论文，确认命中正确页码。
-- [ ] 运行科研模块测试、Python 测试和类型检查后提交。
+- [x] 先写失败测试：章节、页码、块 ID 和空文本处理。
+- [x] 将当前关键词检索升级为 BM25，并保留纯关键词匹配作为最终回退。
+- [x] 接入轻量级多语言 Embedding，持久化论文向量。
+- [x] 使用 RRF 融合稀疏与向量结果，返回 Top-K 证据。
+- [x] 用中文问题检索英文超分论文，确认命中正确页码。
+- [x] 运行科研模块测试、Python 测试和类型检查后提交。
 
 **降级：** Embedding 模型不可用时自动使用 BM25，不能阻塞论文问答。
+
+> 注记：中文检索验证见 `python/paper_worker/test_rag.py`（`"证据"` 命中含页码的 `p2-c1` 块）；TS 侧 `evidence-search.test.mjs` 覆盖汉字匹配。提交：`009a652`（migrate hybrid paper retrieval）。⚠️ 仍缺：尚未用真实英文超分论文做端到端中文问答核对页码（计划第 14 天补）。
 
 ## 第 3 天：CitationVerify 与约束
 
@@ -65,12 +70,14 @@
 
 **步骤：**
 
-- [ ] 写失败测试：伪造页码、错误块 ID、跨项目引用和无证据结论。
-- [ ] 定义 `answer + citations` 结构化输出。
-- [ ] 新增回答校验工具，验证引用与真实证据块一致。
-- [ ] 校验失败时允许重检索一次，仍失败则返回证据不足。
-- [ ] 限制查询长度、Top-K、工具次数和输出大小。
-- [ ] 通过测试后提交。
+- [x] 写失败测试：伪造页码、错误块 ID、跨项目引用和无证据结论。
+- [x] 定义 `answer + citations` 结构化输出。
+- [x] 新增回答校验工具，验证引用与真实证据块一致。
+- [x] 校验失败时允许重检索一次，仍失败则返回证据不足。
+- [x] 限制查询长度、Top-K、工具次数和输出大小。
+- [x] 通过测试后提交。
+
+> 注记：查询 ≤1000 字符、Top-K 1..8、answer ≤6000、citations ≤8、quote 8..500 已由 Schema + 校验器限制；⚠️「每轮工具调用次数」硬上限尚未实现（留待复现切片补）。重检索一次的策略写入 `paper_analysis` Skill。提交：`77fe8be`（verify grounded paper answers）。
 
 ## 第 4～5 天：论文搜索与下载 MCP
 

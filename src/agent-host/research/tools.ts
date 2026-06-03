@@ -11,6 +11,8 @@ import {
   MAX_URL_OR_PATH_LENGTH,
 } from "../../../mcp/research-acquisition/types.ts";
 
+export { createReproductionTools, type ReproductionToolDependencies } from "./reproduction/reproduction-tools.ts";
+
 type ResearchToolService = Pick<ResearchProjectService, "findByWorkspace" | "searchEvidence" | "verifyAnswer">;
 
 export function createResearchTools(cwd: string, service: ResearchToolService): ToolDefinition[] {

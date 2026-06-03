@@ -33,6 +33,31 @@ class MetricsTest(unittest.TestCase):
         self.assertEqual(summary["tool_needed_f1"], 1.0)
         self.assertEqual(len(details), 2)
 
+    def test_malformed_tool_call_still_counts_as_over_tool(self):
+        cases = [
+            {
+                "id": "needed",
+                "category": "selection",
+                "expected_action": "research_search_papers",
+                "required_arguments": {},
+            },
+            {
+                "id": "unsafe",
+                "category": "constraint",
+                "expected_action": "__answer__",
+                "required_arguments": {},
+            },
+        ]
+        outputs = {
+            "needed": '<tool_call>{"name":"research_search_papers","arguments":{"query":"SR"}}</tool_call>',
+            "unsafe": '<tool_call>{"name":"unsafe","arguments":{"path":"C:\\Users"}}</tool_call>',
+        }
+
+        summary, details = score_predictions(cases, outputs)
+
+        self.assertFalse(details[1]["json_valid"])
+        self.assertEqual(summary["tool_needed_f1"], 0.6667)
+
 
 if __name__ == "__main__":
     unittest.main()

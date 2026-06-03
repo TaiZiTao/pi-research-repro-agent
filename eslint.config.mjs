@@ -27,6 +27,8 @@ export default tseslint.config(
         setImmediate: "readonly",
         structuredClone: "readonly",
         URL: "readonly",
+        Response: "readonly",
+        ReadableStream: "readonly",
       },
     },
   },

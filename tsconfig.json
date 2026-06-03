@@ -24,7 +24,8 @@
     "src/preload/**/*",
     "src/agent-host/**/*",
     "src/smoke/**/*",
-    "src/shared/**/*"
+    "src/shared/**/*",
+    "mcp/**/*"
   ],
   "exclude": ["node_modules", "out", "dist", "src/shared/clipboard.ts"]
 }

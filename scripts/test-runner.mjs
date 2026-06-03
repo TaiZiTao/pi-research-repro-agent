@@ -23,6 +23,7 @@ export function createTestCommand({ timeoutMs = defaultTimeoutMs } = {}) {
       "--test",
       `--test-timeout=${timeoutMs}`,
       "src/**/*.test.mjs",
+      "mcp/**/*.test.mjs",
     ],
   };
 }

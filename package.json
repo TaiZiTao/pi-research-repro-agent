@@ -25,7 +25,7 @@
     "build:windows-sbom": "node scripts/generate-windows-sbom.mjs",
     "check:windows-sbom": "node scripts/verify-windows-sbom.mjs",
     "build:smoke": "tsup --config tsup.smoke.config.ts",
-    "lint": "eslint src scripts *.ts *.mjs --max-warnings=0",
+    "lint": "eslint src scripts mcp *.ts *.mjs --max-warnings=0",
     "lint:fix": "eslint src scripts *.ts *.mjs --fix --max-warnings=0",
     "format": "prettier . --write",
     "format:check": "prettier . --check",

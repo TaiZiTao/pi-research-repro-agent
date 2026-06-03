@@ -2,6 +2,7 @@ import json
 import unittest
 
 from training.schema import sanitize_trajectory, validate_trajectory
+from training.generate_golden import generate_synthetic_trajectories
 
 
 class DatasetPipelineTest(unittest.TestCase):
@@ -48,6 +49,12 @@ class DatasetPipelineTest(unittest.TestCase):
 
         sanitized["messages"][1]["tool_calls"][0]["function"]["name"] = "missing_tool"
         self.assertTrue(any("missing_tool" in error for error in validate_trajectory(sanitized)))
+
+        generated = generate_synthetic_trajectories()
+        self.assertEqual(len(generated), 29)
+        self.assertEqual(len({record["id"] for record in generated}), 29)
+        self.assertTrue(all(record["source"] == "synthetic" for record in generated))
+        self.assertTrue(all(validate_trajectory(record) == [] for record in generated))
 
 
 if __name__ == "__main__":

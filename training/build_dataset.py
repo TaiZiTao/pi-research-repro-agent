@@ -6,6 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
+from training.generate_golden import generate_synthetic_trajectories
 from training.schema import sanitize_trajectory, validate_trajectory
 
 
@@ -17,6 +18,13 @@ def build_dataset(scenarios_dir: Path, output_path: Path) -> int:
         if errors:
             raise ValueError(f"{source_path.name}: " + "; ".join(errors))
         records.append(record)
+    records.extend(sanitize_trajectory(record) for record in generate_synthetic_trajectories())
+    if len({record["id"] for record in records}) != len(records):
+        raise ValueError("duplicate trajectory id")
+    for record in records:
+        errors = validate_trajectory(record)
+        if errors:
+            raise ValueError(f"{record['id']}: " + "; ".join(errors))
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         "".join(json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n" for record in records),
@@ -36,4 +44,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

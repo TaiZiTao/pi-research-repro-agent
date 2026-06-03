@@ -102,6 +102,10 @@ asar: true
 extraResources:
   - from: THIRD_PARTY_NOTICES.md
     to: THIRD_PARTY_NOTICES.md
+  - from: resources/research-skills
+    to: research/skills
+    filter:
+      - "**/SKILL.md"
   - from: build/toolchains/runtime-catalog.json
     to: toolchains/runtime-catalog.json
   - from: build/toolchains/core-catalog.json

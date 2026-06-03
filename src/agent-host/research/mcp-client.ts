@@ -362,6 +362,8 @@ export interface StdioAcquisitionTransportOptions {
   nodeExecutable?: string;
   /** Absolute path to the research-acquisition server entry module. */
   serverPath: string;
+  /** SDK protocol request timeout in ms (defaults to the SDK default of 60s). */
+  requestTimeoutMs?: number;
 }
 
 /**
@@ -386,7 +388,7 @@ export function createStdioAcquisitionTransport(options: StdioAcquisitionTranspo
           return rawClient.listTools();
         },
         async callTool(params) {
-          return rawClient.callTool(params);
+          return rawClient.callTool(params, undefined, { timeout: options.requestTimeoutMs });
         },
         async close() {
           await rawClient.close();
@@ -414,6 +416,8 @@ export function createStdioAcquisitionTransport(options: StdioAcquisitionTranspo
 export interface InMemoryAcquisitionTransportOptions {
   /** Options forwarded to createResearchAcquisitionServer (used as stubs in tests). */
   serverOptions?: Parameters<typeof createResearchAcquisitionServer>[0];
+  /** SDK protocol request timeout in ms (defaults to the SDK default of 60s). */
+  requestTimeoutMs?: number;
 }
 
 /**
@@ -436,7 +440,7 @@ export function createInMemoryAcquisitionTransport(
           return rawClient.listTools();
         },
         async callTool(params) {
-          return rawClient.callTool(params);
+          return rawClient.callTool(params, undefined, { timeout: options.requestTimeoutMs });
         },
         async close() {
           await rawClient.close();

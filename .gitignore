@@ -14,3 +14,4 @@ build/toolchains/core/
 native/**/target/
 __pycache__/
 *.py[cod]
+training/outputs/

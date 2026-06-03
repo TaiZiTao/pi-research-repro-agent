@@ -106,7 +106,7 @@
 
 > 注记（2026-09-03 完成）：实现分两层 —— MCP server 在 `mcp/research-acquisition/`（`server.ts` / `paper-sources.ts` / `download.ts`），客户端门面与 Pi 工具定义在 `src/agent-host/research/`（`mcp-client.ts` + `tools.ts` 的 `research_search_papers` / `research_download_paper` / `research_search_repositories`；`download` 固定写入托管 downloadsRoot，模型不能指定任意写路径）。
 >
-> - ⚠️ 差异：rpc-manager 会话接线未做 —— stdio transport 子进程生命周期与打包版 serverPath 解析需在桌面会话集成时统一处理（建议：research 运行时单例持有共享 client，会话销毁时关闭）。代理工具定义、超时（20s 默认 + SDK 按请求超时）、错误回退、脱敏（token/本地路径 [redacted]）均有测试覆盖。
+> - ✅ 会话接线：research runtime 持有 MCP client 与复现 store，`rpc-manager` 为所有会话注册 acquisition 工具，并只为 ready 论文工作区注册证据与复现工具。当前使用 MCP SDK 的进程内 transport，避免额外子进程和打包路径差异。
 > - ✅ 真实端到端：搜索 “single image super-resolution” → 选中 arXiv 2607.09351（Simon-SR，813KB）→ 下载（%PDF- 魔数 + sha256）→ CLI 导入 `ready`（5 页）→ 英文证据检索命中页码。GitHub 仓库搜索对 Simon-SR 无结果（新论文），机制已用 Real-ESRGAN 单独验证。
 > - ⚠️ 环境限制（本机）：e5 embedding 未缓存且 HuggingFace 不可达 → 索引降级 BM25（设计内），中文 query 检索英文论文需 dense（第 14 天演示前补）；arXiv 大文件下载需 IPv4 优先 + 长超时（SDK 默认 60s 不够）；OpenAlex 指向出版商托管的 PDF（如 MDPI）会 418。
 > - 🔧 顺带修复：`parse_pdf.py` 按码点切块导致含增补平面字符（数学符号）的论文块 JS 长度超 1200 → 改按 UTF-16 单元切块并加测试（`bd38aa5`）。
@@ -139,10 +139,10 @@
 - [x] 生成带来源、环境、指标和失败说明的复现报告。
 - [x] 用一个小型超分模块跑通真实错误修复后提交。
 
-> 注记（2026-09-03 完成）：实现落在 `src/agent-host/research/reproduction/` —— 领域层 `types/state-machine/store/paths/planner/report`（`88466f9`）、执行器 `executor.ts`（隔离 workspace、危险命令拒绝表、每命令超时、产物写 `artifacts/logs/<step>.log`、断点跳过成功步、`resetFailedSteps` + 最多 3 轮修复，`2ce79ef`）、Pi 工具 `reproduction-tools.ts`（`research_plan_reproduction` / `research_reproduction_execute` / `research_reproduction_verify` / `research_reproduction_report`,tools.ts re-export,`74a1ecd`）与两个 reproduction SKILL.md 由“禁用”占位改为可用说明。
+> 注记（2026-09-04 加固）：实现落在 `src/agent-host/research/reproduction/`。五个 Pi 工具覆盖计划、步骤配置、执行、确定性校验与报告；执行采用工作目录、可执行程序白名单、Shell 控制符/路径穿越拦截和超时组成的受控执行，不宣称容器级沙箱。
 >
-> - ✅ 真实错误修复演示：小型超分模块（numpy 合成图 + 2x 最近邻 + PSNR）首跑 `NameError: compute_psnr`（exit 1，真实 stderr 入日志）→ `verify(accepted=false, reason)` 进入修复轮 1 → 补上 PSNR 实现后重跑成功 → 校验步通过 → `completed`（repairRoundsUsed=1），报告标注 “(Agent 最小复现)” 并含来源/步骤表/产物。
-> - ⚠️ 差异/待办：执行器的真实命令 Runner 由上层注入（demo 用 `child_process.exec` 包装）；`rpc-manager` 会话接线（复现工具 + 复现 store 的运行时单例与生命周期）与 acquisition 一样留待桌面会话集成；仓库核验目前依赖 acquisition `search_repositories` 的候选（day 4-5），planner 按 https+matchBasis 采用，否则自动标注 Agent 最小复现。
+> - ✅ 真实错误修复演示：执行 `node definitely-missing-file.js` 产生真实 exit 1 与 stderr 日志 → repair round 1 → 将当前步骤更新为 `node --version` 并重跑 → 六个步骤全部成功 → 校验器逐一核对日志大小与 SHA256 后才进入 `completed`，报告包含全部日志产物。
+> - ✅ 假完成已封堵：模型不再提交 `accepted=true`；pending/failed 步骤以及缺失、越界或被篡改的产物都会拒绝完成。仓库候选强绑定与用户选论文门禁作为非阻塞增强项延后，不影响下一阶段 LoRA 轨迹构建。
 > - ✅ 测试：科研+mcp+reproduction Node 测试 124/124；Python test_rag/test_parse_pdf OK；typecheck 与全量 lint 0 错。
 
 ## 第 9～10 天：QLoRA 数据集

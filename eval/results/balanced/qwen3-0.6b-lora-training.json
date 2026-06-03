@@ -1,0 +1,82 @@
+{
+  "base_model": "E:\\deepseek\\models\\Qwen3-0.6B",
+  "data": "training/data/raw/golden.jsonl",
+  "trajectory_count": 181,
+  "example_count": 427,
+  "max_steps": 40,
+  "max_length": 1536,
+  "seed": 42,
+  "trainable_parameters": 10092544,
+  "total_parameters": 606142464,
+  "trainable_percent": 1.665,
+  "elapsed_seconds": 172.588,
+  "peak_vram_gb": 3.785,
+  "train_loss": 0.5492613673210144,
+  "log_history": [
+    {
+      "loss": 1.1173,
+      "grad_norm": 5.112972259521484,
+      "learning_rate": 0.00019863613034027224,
+      "epoch": 0.0468384074941452,
+      "step": 5
+    },
+    {
+      "loss": 0.4318,
+      "grad_norm": 0.9967445135116577,
+      "learning_rate": 0.00018371664782625287,
+      "epoch": 0.0936768149882904,
+      "step": 10
+    },
+    {
+      "loss": 0.4628,
+      "grad_norm": 1.0092700719833374,
+      "learning_rate": 0.0001546948158122427,
+      "epoch": 0.1405152224824356,
+      "step": 15
+    },
+    {
+      "loss": 0.7169,
+      "grad_norm": 1.707585334777832,
+      "learning_rate": 0.00011645945902807341,
+      "epoch": 0.1873536299765808,
+      "step": 20
+    },
+    {
+      "loss": 0.473,
+      "grad_norm": 0.9649943113327026,
+      "learning_rate": 7.54514512859201e-5,
+      "epoch": 0.234192037470726,
+      "step": 25
+    },
+    {
+      "loss": 0.3735,
+      "grad_norm": 0.7210463881492615,
+      "learning_rate": 3.857872873103322e-5,
+      "epoch": 0.2810304449648712,
+      "step": 30
+    },
+    {
+      "loss": 0.3456,
+      "grad_norm": 3.0335235595703125,
+      "learning_rate": 1.2052624879351104e-5,
+      "epoch": 0.32786885245901637,
+      "step": 35
+    },
+    {
+      "loss": 0.4732,
+      "grad_norm": 2.2130165100097656,
+      "learning_rate": 3.415506993330153e-7,
+      "epoch": 0.3747072599531616,
+      "step": 40
+    },
+    {
+      "train_runtime": 172.3344,
+      "train_samples_per_second": 0.928,
+      "train_steps_per_second": 0.232,
+      "total_flos": 466145771520000.0,
+      "train_loss": 0.5492613673210144,
+      "epoch": 0.3747072599531616,
+      "step": 40
+    }
+  ]
+}

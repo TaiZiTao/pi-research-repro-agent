@@ -47,12 +47,17 @@ class CompletionCollator:
         }
 
 
-def load_examples(path: Path) -> list[dict[str, Any]]:
+def load_examples(path: Path, answer_upsample: int = 1) -> list[dict[str, Any]]:
     examples = []
     with path.open(encoding="utf-8") as handle:
         for line in handle:
             if line.strip():
-                examples.extend(build_examples(json.loads(line)))
+                built = build_examples(json.loads(line))
+                for example in built:
+                    examples.append(example)
+                    if example["target_action"] == "__answer__" and answer_upsample > 1:
+                        for _ in range(answer_upsample - 1):
+                            examples.append(dict(example))
     return examples
 
 
@@ -86,6 +91,7 @@ def main() -> None:
     parser.add_argument("--max-steps", type=int, default=40)
     parser.add_argument("--max-length", type=int, default=1536)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--answer-upsample", type=int, default=1, help="Repeat __answer__ examples N times to counter over-tooling")
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -93,7 +99,7 @@ def main() -> None:
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
-    examples = load_examples(Path(args.data))
+    examples = load_examples(Path(args.data), answer_upsample=args.answer_upsample)
     random.shuffle(examples)
     records = [tokenize_example(tokenizer, example, args.max_length) for example in examples]
 

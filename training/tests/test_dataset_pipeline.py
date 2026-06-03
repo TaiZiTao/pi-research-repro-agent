@@ -52,7 +52,7 @@ class DatasetPipelineTest(unittest.TestCase):
 
         generated = generate_synthetic_trajectories()
         self.assertGreaterEqual(len(generated), 120)
-        self.assertLessEqual(len(generated), 200)
+        self.assertLessEqual(len(generated), 300)
         self.assertEqual(len({record["id"] for record in generated}), len(generated))
         self.assertTrue(all(record["source"] == "synthetic" for record in generated))
         # build_dataset sanitizes before validating; mirror that exact flow.

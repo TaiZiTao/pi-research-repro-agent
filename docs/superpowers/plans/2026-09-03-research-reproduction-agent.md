@@ -185,6 +185,8 @@
 >
 > 111 条对照（Base vs refined LoRA，温度 0）：动作准确率 48.65% vs 72.97%、参数匹配率 33.73% vs 87.95%、Tool-needed F1 58.27% vs 86.01%、Over-tool Rate 25%（7/28）vs 96.43%（27/28）。分层：refined 的工具协议类全强（grounding 0→14/14、error_recovery 0→7/7、workflow 4→18/21、argument_filling 9→14/14、refusal(finalize) 7/10）；但不需要工具的 5 类几乎全错（constraint 0/10、no_tool_needed 1/9、repeated_task 0/3、task_completed 0/3、insufficient 已答 0/3），而 Base 在这些类能停手（no_tool 9/9、repeated 3/3、completed 3/3）。结论：LoRA 工具协议能力真实提升（动作/参数可作主指标），但存在系统性过度调用；Over-tool 必须与 Tool-needed F1 并列报告，F1 高值不再单独作为亮点。修正方向（训练阶段）：提高 answer 五类样本占比并增加训练步数至 ≥1 epoch。
 
+> 注记（2026-09-04 Over-tool 对抗训练）：为压制过度调用，将 answer 类 2× 上采样并把步数提到 171（≈1 epoch，682 样本），loss 0.3963、3.83GB、24.2min（eval/results/overtool111/）。111 条评测：Over-tool Rate 96.43%→3.57%（27/28 拒答正确），Tool-needed F1 98.18%，动作准确率 81.08%；但出现权衡副作用——参数匹配率 87.95%→61.45%，且部分“应调工具”类受损：finalize 14/14→3/14、execute 5/8→1/8、verify 7/7→5/7；参数失败集中于 research_search_papers 的 limit（评测要求 2/3/4，模型一律填 5，训练样本几乎全为 limit:5 的先验）。结论：answer 过采样 2× 修正了过度调用但压制了工具调用，需居中调整（如 answer 上采样 1.5×/工具参数多样化/分阶段训练），本版保留为对照。
+
 ## 第 11～12 天：LoRA 训练与接入
 
 **新增：**

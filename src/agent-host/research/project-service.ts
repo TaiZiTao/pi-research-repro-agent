@@ -245,12 +245,19 @@ export class ResearchProjectService {
     });
   }
 
-  async searchEvidence(projectId: string, query: string, limit = 5): Promise<EvidenceHit[]> {
+  async readChunks(projectId: string): Promise<PaperChunk[]> {
     const project = this.getProject(projectId);
     if (project.status !== "ready") throw new ResearchProjectNotReadyError(projectId);
     const chunksPath = researchProjectPaths(this.#options.researchRoot, projectId).chunksPath;
     if (!existsSync(chunksPath)) throw new Error(`Evidence chunks are missing for ready project: ${projectId}`);
-    const chunks = validateChunks(JSON.parse(readFileSync(chunksPath, "utf8")), project.sha256);
+    return validateChunks(JSON.parse(readFileSync(chunksPath, "utf8")), project.sha256);
+  }
+
+  async searchEvidence(projectId: string, query: string, limit = 5): Promise<EvidenceHit[]> {
+    const project = this.getProject(projectId);
+    if (project.status !== "ready") throw new ResearchProjectNotReadyError(projectId);
+    const chunksPath = researchProjectPaths(this.#options.researchRoot, projectId).chunksPath;
+    const chunks = await this.readChunks(projectId);
     try {
       const result = await (this.#options.runHybrid ?? runHybridWorker)(
         this.#options.python,

@@ -1,8 +1,17 @@
+import { exec } from "node:child_process";
+import path from "node:path";
+import { promisify } from "node:util";
 import type { IngestionProgress } from "../../shared/research/types.ts";
+import { createInMemoryAcquisitionTransport, createResearchAcquisitionClient } from "./mcp-client.ts";
 import { ResearchProjectService, type ProjectServiceOptions } from "./project-service.ts";
 import { ResearchProjectStore } from "./project-store.ts";
-import path from "node:path";
+import type { RunCommand } from "./reproduction/executor.ts";
+import { ReproductionStore } from "./reproduction/store.ts";
 import { resolveResearchRuntimePaths } from "./runtime-paths.ts";
+import { createResearchSessionTools } from "./session-tools.ts";
+
+const execAsync = promisify(exec);
+const DEFAULT_MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
 
 export interface InitializeResearchRuntimeOptions {
   env?: NodeJS.ProcessEnv;
@@ -13,6 +22,29 @@ export interface InitializeResearchRuntimeOptions {
 
 let researchStore: ResearchProjectStore | undefined;
 let researchService: ResearchProjectService | undefined;
+let reproductionStore: ReproductionStore | undefined;
+let acquisitionClient: ReturnType<typeof createResearchAcquisitionClient> | undefined;
+let configuredResearchRoot: string | undefined;
+
+const runResearchCommand: RunCommand = async (command, options) => {
+  try {
+    const result = await execAsync(command, {
+      cwd: options.cwd,
+      timeout: options.timeoutMs,
+      maxBuffer: DEFAULT_MAX_OUTPUT_BYTES,
+      windowsHide: true,
+    });
+    return { exitCode: 0, stdout: result.stdout, stderr: result.stderr };
+  } catch (error) {
+    const failure = error as Error & { code?: unknown; stdout?: unknown; stderr?: unknown };
+    if (typeof failure.code !== "number") throw error;
+    return {
+      exitCode: failure.code,
+      stdout: typeof failure.stdout === "string" ? failure.stdout : "",
+      stderr: typeof failure.stderr === "string" ? failure.stderr : failure.message,
+    };
+  }
+};
 
 export function initializeResearchRuntime(options: InitializeResearchRuntimeOptions = {}): ResearchProjectService {
   if (researchService) return researchService;
@@ -28,10 +60,19 @@ export function initializeResearchRuntime(options: InitializeResearchRuntimeOpti
       now: options.now,
       emit: options.emit,
     });
+    const reproStore = new ReproductionStore(paths.databasePath);
+    const client = createResearchAcquisitionClient({
+      transport: createInMemoryAcquisitionTransport(),
+    });
     researchStore = store;
     researchService = service;
+    reproductionStore = reproStore;
+    acquisitionClient = client;
+    configuredResearchRoot = paths.researchRoot;
     return service;
   } catch (error) {
+    reproductionStore?.close();
+    reproductionStore = undefined;
     store.close();
     throw error;
   }
@@ -46,10 +87,27 @@ export function getResearchProjectService(): ResearchProjectService {
   return researchService;
 }
 
+export async function createResearchRuntimeTools(cwd: string) {
+  if (!researchService || !reproductionStore || !acquisitionClient || !configuredResearchRoot) return [];
+  const client = await acquisitionClient;
+  return createResearchSessionTools(cwd, {
+    projectService: researchService,
+    acquisition: { client, downloadsRoot: path.join(configuredResearchRoot, "downloads") },
+    reproduction: { store: reproductionStore, runCommand: runResearchCommand },
+  });
+}
+
 export function closeResearchRuntime(): void {
   const store = researchStore;
+  const reproStore = reproductionStore;
+  const client = acquisitionClient;
   researchService = undefined;
   researchStore = undefined;
+  reproductionStore = undefined;
+  acquisitionClient = undefined;
+  configuredResearchRoot = undefined;
+  void client?.then((value) => value.close()).catch(() => undefined);
+  reproStore?.close();
   store?.close();
 }
 

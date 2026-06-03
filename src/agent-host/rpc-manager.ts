@@ -34,8 +34,7 @@ import { getDesktopSessionToolNames, setDesktopSessionToolNames } from "./sessio
 import { peekManagedProcessService } from "./managed-process/runtime";
 import { createManagedProcessToolDefinitions } from "./managed-process/tools";
 import { installManagedProcessSessionRedaction } from "./managed-process/session-redaction";
-import { peekResearchProjectService } from "./research/runtime";
-import { createResearchTools } from "./research/tools";
+import { createResearchRuntimeTools } from "./research/runtime";
 
 // ============================================================================
 // Types
@@ -1449,11 +1448,12 @@ export async function startRpcSession(
       services.settingsManager.getShellCommandPrefix(),
       (command) => browserAgentRuntime.guardBash(sessionManager.getSessionId(), command),
     );
+    const researchTools = await createResearchRuntimeTools(cwd);
     const customTools = [
       createBashToolDefinition(cwd, bashOptions),
       ...createDesktopSearchToolDefinitions(cwd, executionContext, toolchainRuntime),
       ...createBrowserToolDefinitions(),
-      ...(peekResearchProjectService() ? createResearchTools(cwd, peekResearchProjectService()!) : []),
+      ...researchTools,
       ...(peekManagedProcessService()
         ? createManagedProcessToolDefinitions(
             cwd,

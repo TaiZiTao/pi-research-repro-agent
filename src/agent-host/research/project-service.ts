@@ -9,6 +9,8 @@ import type {
   ResearchProject,
   ResearchProjectStatus,
 } from "../../shared/research/types.ts";
+import type { GroundedAnswer } from "./answer-schema.ts";
+import { verifyGroundedAnswer, type CitationVerification } from "./citation-verifier.ts";
 import { assertResearchTransition } from "../../shared/research/state-machine.ts";
 import { searchEvidence } from "./evidence-search.ts";
 import { runHybridWorker } from "./hybrid-worker.ts";
@@ -266,5 +268,14 @@ export class ResearchProjectService {
       // The managed JSON chunks remain the final offline fallback.
     }
     return searchEvidence(chunks, query, limit);
+  }
+
+  verifyAnswer(projectId: string, draft: GroundedAnswer): CitationVerification {
+    const project = this.getProject(projectId);
+    if (project.status !== "ready") throw new ResearchProjectNotReadyError(projectId);
+    const chunksPath = researchProjectPaths(this.#options.researchRoot, projectId).chunksPath;
+    if (!existsSync(chunksPath)) throw new Error(`Evidence chunks are missing for ready project: ${projectId}`);
+    const chunks = validateChunks(JSON.parse(readFileSync(chunksPath, "utf8")), project.sha256);
+    return verifyGroundedAnswer(draft, chunks, project.sha256);
   }
 }

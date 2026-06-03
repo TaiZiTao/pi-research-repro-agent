@@ -24,10 +24,11 @@ test("returns no research tools outside a ready project", () => {
   );
 });
 
-test("defines one bounded sequential evidence search tool for a ready project", () => {
-  const [tool] = createResearchTools("/research/project", {
+test("defines bounded evidence search and answer verification tools for a ready project", () => {
+  const [tool, verifier] = createResearchTools("/research/project", {
     findByWorkspace: () => project,
     searchEvidence: () => [],
+    verifyAnswer: () => ({ accepted: true, errors: [] }),
   });
 
   assert.equal(tool.name, "research_search_evidence");
@@ -41,16 +42,23 @@ test("defines one bounded sequential evidence search tool for a ready project", 
   assert.equal(tool.parameters.properties.limit.minimum, 1);
   assert.equal(tool.parameters.properties.limit.maximum, 8);
   assert.equal(tool.parameters.additionalProperties, false);
+  assert.equal(verifier.name, "research_finalize_answer");
+  assert.equal(verifier.executionMode, "sequential");
+  assert.deepEqual(Object.keys(verifier.parameters.properties), ["status", "answer", "citations"]);
 });
 
 test("executes evidence search against only the workspace-bound project", async () => {
   const hits = [{ paperId: project.sha256, chunkId: "p2-c3", page: 2, text: "direct evidence", score: 4 }];
   const calls = [];
-  const [tool] = createResearchTools(project.workspacePath, {
+  const [tool, verifier] = createResearchTools(project.workspacePath, {
     findByWorkspace: (cwd) => (cwd === project.workspacePath ? project : undefined),
     searchEvidence: async (...args) => {
       calls.push(args);
       return hits;
+    },
+    verifyAnswer: (projectId, draft) => {
+      calls.push([projectId, draft]);
+      return { accepted: true, errors: [] };
     },
   });
 
@@ -59,4 +67,13 @@ test("executes evidence search against only the workspace-bound project", async 
   assert.deepEqual(calls, [[project.projectId, "evidence", 3]]);
   assert.deepEqual(JSON.parse(result.content[0].text), { projectId: project.projectId, hits });
   assert.deepEqual(result.details, { hits });
+
+  const draft = {
+    status: "grounded",
+    answer: "Evidence-backed answer",
+    citations: [{ paperId: project.sha256, page: 2, chunkId: "p2-c3", quote: "direct evidence" }],
+  };
+  const verified = await verifier.execute("call-2", draft, new globalThis.AbortController().signal);
+  assert.deepEqual(calls[1], [project.projectId, draft]);
+  assert.equal(JSON.parse(verified.content[0].text).accepted, true);
 });

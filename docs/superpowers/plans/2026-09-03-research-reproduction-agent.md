@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript、Pi Agent、Python、PyMuPDF、SQLite、MCP、BM25、多语言 Embedding、PyTorch/Transformers/PEFT/QLoRA。
 
-> **进度（2026-09-03 回填）**：✅ 底座 + 第 1～3 天已完成（科研模块 TS 测试 39/39 通过）；⬜ 第 4～5 天（MCP）起未开始。**约定：每完成一步立即勾选，并在提交时同步本文件。**
+> **进度（2026-09-03 回填）**：✅ 底座 + 第 1～3 天 + 第 4～5 天（MCP 获取）已完成；⬜ 第 6～8 天（复现 Workflow）起未开始。**约定：每完成一步立即勾选，并在提交时同步本文件。**
 
 ---
 
@@ -96,13 +96,20 @@
 
 **步骤：**
 
-- [ ] 安装并锁定官方 MCP SDK。
-- [ ] 实现 `search_papers`，聚合 arXiv 与 OpenAlex 并去重。
-- [ ] 返回候选列表，必须由用户选择论文。
-- [ ] 实现 `download_paper`，只接受开放 PDF，并校验类型、大小和哈希。
-- [ ] 实现 `search_repositories`，保存 URL、commit、许可证和匹配依据。
-- [ ] 将 MCP 工具代理到 Pi，增加超时、错误回退和脱敏测试。
-- [ ] 用真实关键词完成一次搜索、选择和下载后提交。
+- [x] 安装并锁定官方 MCP SDK。
+- [x] 实现 `search_papers`，聚合 arXiv 与 OpenAlex 并去重。
+- [x] 返回候选列表，必须由用户选择论文。
+- [x] 实现 `download_paper`，只接受开放 PDF，并校验类型、大小和哈希。
+- [x] 实现 `search_repositories`，保存 URL、commit、许可证和匹配依据。
+- [x] 将 MCP 工具代理到 Pi，增加超时、错误回退和脱敏测试。
+- [x] 用真实关键词完成一次搜索、选择和下载后提交。
+
+> 注记（2026-09-03 完成）：实现分两层 —— MCP server 在 `mcp/research-acquisition/`（`server.ts` / `paper-sources.ts` / `download.ts`），客户端门面与 Pi 工具定义在 `src/agent-host/research/`（`mcp-client.ts` + `tools.ts` 的 `research_search_papers` / `research_download_paper` / `research_search_repositories`；`download` 固定写入托管 downloadsRoot，模型不能指定任意写路径）。
+>
+> - ⚠️ 差异：rpc-manager 会话接线未做 —— stdio transport 子进程生命周期与打包版 serverPath 解析需在桌面会话集成时统一处理（建议：research 运行时单例持有共享 client，会话销毁时关闭）。代理工具定义、超时（20s 默认 + SDK 按请求超时）、错误回退、脱敏（token/本地路径 [redacted]）均有测试覆盖。
+> - ✅ 真实端到端：搜索 “single image super-resolution” → 选中 arXiv 2607.09351（Simon-SR，813KB）→ 下载（%PDF- 魔数 + sha256）→ CLI 导入 `ready`（5 页）→ 英文证据检索命中页码。GitHub 仓库搜索对 Simon-SR 无结果（新论文），机制已用 Real-ESRGAN 单独验证。
+> - ⚠️ 环境限制（本机）：e5 embedding 未缓存且 HuggingFace 不可达 → 索引降级 BM25（设计内），中文 query 检索英文论文需 dense（第 14 天演示前补）；arXiv 大文件下载需 IPv4 优先 + 长超时（SDK 默认 60s 不够）；OpenAlex 指向出版商托管的 PDF（如 MDPI）会 418。
+> - 🔧 顺带修复：`parse_pdf.py` 按码点切块导致含增补平面字符（数学符号）的论文块 JS 长度超 1200 → 改按 UTF-16 单元切块并加测试（`bd38aa5`）。
 
 ## 第 6～8 天：代码复现 Workflow
 

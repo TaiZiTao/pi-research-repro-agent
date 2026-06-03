@@ -102,6 +102,8 @@ asar: true
 extraResources:
   - from: THIRD_PARTY_NOTICES.md
     to: THIRD_PARTY_NOTICES.md
+  - from: python/paper_worker/parse_pdf.py
+    to: research/python/parse_pdf.py
   - from: resources/research-skills
     to: research/skills
     filter:

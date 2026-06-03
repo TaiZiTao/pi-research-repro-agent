@@ -8,7 +8,7 @@
 
 **Tech Stack:** TypeScript、Pi Agent、Python、PyMuPDF、SQLite、MCP、BM25、多语言 Embedding、PyTorch/Transformers/PEFT/QLoRA。
 
-> **进度（2026-09-03 回填）**：✅ 底座 + 第 1～3 天 + 第 4～5 天（MCP 获取）已完成；⬜ 第 6～8 天（复现 Workflow）起未开始。**约定：每完成一步立即勾选，并在提交时同步本文件。**
+> **进度（2026-09-03 回填）**：✅ 底座 + 第 1～3 天 + 第 4～5 天（MCP 获取）+ 第 6～8 天（复现 Workflow）已完成；⬜ 第 9～10 天（QLoRA 数据集）起未开始。**约定：每完成一步立即勾选，并在提交时同步本文件。**
 
 ---
 
@@ -130,14 +130,20 @@
 
 **步骤：**
 
-- [ ] 定义 `planned → preparing → running → verifying → completed/blocked` 状态机。
-- [ ] 从论文证据提取模型、数据、损失、训练配置和指标。
-- [ ] 核验官方仓库；没有仓库时生成“Agent 最小复现”计划。
-- [ ] 将命令限制在本次复现工作区，并记录命令、退出码和产物。
-- [ ] 实现超时、危险命令拦截和最多 3 轮报错纠正。
-- [ ] 保存断点状态，避免恢复后重复执行成功步骤。
-- [ ] 生成带来源、环境、指标和失败说明的复现报告。
-- [ ] 用一个小型超分模块跑通真实错误修复后提交。
+- [x] 定义 `planned → preparing → running → verifying → completed/blocked` 状态机。
+- [x] 从论文证据提取模型、数据、损失、训练配置和指标。
+- [x] 核验官方仓库；没有仓库时生成“Agent 最小复现”计划。
+- [x] 将命令限制在本次复现工作区，并记录命令、退出码和产物。
+- [x] 实现超时、危险命令拦截和最多 3 轮报错纠正。
+- [x] 保存断点状态，避免恢复后重复执行成功步骤。
+- [x] 生成带来源、环境、指标和失败说明的复现报告。
+- [x] 用一个小型超分模块跑通真实错误修复后提交。
+
+> 注记（2026-09-03 完成）：实现落在 `src/agent-host/research/reproduction/` —— 领域层 `types/state-machine/store/paths/planner/report`（`88466f9`）、执行器 `executor.ts`（隔离 workspace、危险命令拒绝表、每命令超时、产物写 `artifacts/logs/<step>.log`、断点跳过成功步、`resetFailedSteps` + 最多 3 轮修复，`2ce79ef`）、Pi 工具 `reproduction-tools.ts`（`research_plan_reproduction` / `research_reproduction_execute` / `research_reproduction_verify` / `research_reproduction_report`,tools.ts re-export,`74a1ecd`）与两个 reproduction SKILL.md 由“禁用”占位改为可用说明。
+>
+> - ✅ 真实错误修复演示：小型超分模块（numpy 合成图 + 2x 最近邻 + PSNR）首跑 `NameError: compute_psnr`（exit 1，真实 stderr 入日志）→ `verify(accepted=false, reason)` 进入修复轮 1 → 补上 PSNR 实现后重跑成功 → 校验步通过 → `completed`（repairRoundsUsed=1），报告标注 “(Agent 最小复现)” 并含来源/步骤表/产物。
+> - ⚠️ 差异/待办：执行器的真实命令 Runner 由上层注入（demo 用 `child_process.exec` 包装）；`rpc-manager` 会话接线（复现工具 + 复现 store 的运行时单例与生命周期）与 acquisition 一样留待桌面会话集成；仓库核验目前依赖 acquisition `search_repositories` 的候选（day 4-5），planner 按 https+matchBasis 采用，否则自动标注 Agent 最小复现。
+> - ✅ 测试：科研+mcp+reproduction Node 测试 124/124；Python test_rag/test_parse_pdf OK；typecheck 与全量 lint 0 错。
 
 ## 第 9～10 天：QLoRA 数据集
 

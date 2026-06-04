@@ -222,13 +222,14 @@ def _paper_search_flow() -> list[dict[str, Any]]:
     for index, (topic, title, arxiv_id) in enumerate(papers, start=1):
         url = f"https://arxiv.org/pdf/{arxiv_id}"
         query = f"近年 {topic} 论文"
+        limit = 2 + (index - 1) % 4
         messages = []
         candidate = {"title": title, "id": arxiv_id, "pdfUrl": url}
-        messages += _pair(1, "research_search_papers", {"query": query, "limit": 5}, {"candidates": [candidate]}, "先返回候选，不编造。")
+        messages += _pair(1, "research_search_papers", {"query": query, "limit": limit}, {"candidates": [candidate]}, "先返回候选，不编造。")
         messages += _pair(2, "research_download_paper", {"url": url}, {"path": f"downloads/{arxiv_id}.pdf", "sha256": "a" * 64, "bytes": 1024})
         if index % 2 == 0:
             messages += _pair(3, "research_search_repositories", {"title": title, "limit": 5}, {"repositories": [{"fullName": f"user/sr-{index}", "url": "https://github.com/user/sr", "license": "MIT", "commitSha": "b" * 40, "matchBasis": f"title-keywords:{topic}"}]})
-        records.append(_trajectory(f"paper-search-flow-{index:03d}", "paper_acquisition_flow", f"帮我搜索{query}，给候选列表。", messages, "候选已返回，下载完成并校验哈希。" if index % 2 == 0 else "候选已返回，PDF 下载完成。"))
+        records.append(_trajectory(f"paper-search-flow-{index:03d}", "paper_acquisition_flow", f"帮我搜索 {limit} 篇{query}，给候选列表。", messages, "候选已返回，下载完成并校验哈希。" if index % 2 == 0 else "候选已返回，PDF 下载完成。"))
     return records
 
 
@@ -246,9 +247,10 @@ def _search_intent_disambiguation() -> list[dict[str, Any]]:
     ]
     records = []
     for index, (topic, web_query, paper_query, evidence_question) in enumerate(topics, start=1):
+        limit = 2 + (index - 1) % 4
         web_messages = []
-        web_messages += _pair(1, "research_search_papers", {"query": web_query, "limit": 5}, {"candidates": []})
-        records.append(_trajectory(f"intent-search-papers-{index:03d}", "intent_web_vs_paper", f"帮我搜索{web_query}，给候选。", web_messages, "检索完成，返回候选列表。"))
+        web_messages += _pair(1, "research_search_papers", {"query": web_query, "limit": limit}, {"candidates": []})
+        records.append(_trajectory(f"intent-search-papers-{index:03d}", "intent_web_vs_paper", f"帮我搜索 {limit} 篇{web_query}，给候选。", web_messages, "检索完成，返回候选列表。"))
         evidence_messages = []
         evidence_messages += _pair(1, "research_search_evidence", {"query": evidence_question, "limit": 5}, {"hits": []})
         records.append(_trajectory(f"intent-search-evidence-{index:03d}", "intent_web_vs_paper", f"在当前论文里查一下{paper_query}的{evidence_question}。", evidence_messages, "当前论文证据检索完成。"))

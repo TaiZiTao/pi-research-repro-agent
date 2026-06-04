@@ -47,17 +47,20 @@ class CompletionCollator:
         }
 
 
-def load_examples(path: Path, answer_upsample: int = 1) -> list[dict[str, Any]]:
-    examples = []
+def load_examples(path: Path, answer_multiplier: float = 1.0, seed: int = 42) -> list[dict[str, Any]]:
+    if not 1.0 <= answer_multiplier <= 2.0:
+        raise ValueError("answer_multiplier must be between 1.0 and 2.0")
+    examples: list[dict[str, Any]] = []
     with path.open(encoding="utf-8") as handle:
         for line in handle:
             if line.strip():
                 built = build_examples(json.loads(line))
-                for example in built:
-                    examples.append(example)
-                    if example["target_action"] == "__answer__" and answer_upsample > 1:
-                        for _ in range(answer_upsample - 1):
-                            examples.append(dict(example))
+                examples.extend(built)
+    answers = [example for example in examples if example["target_action"] == "__answer__"]
+    extra_count = int(len(answers) * (answer_multiplier - 1.0) + 0.5)
+    if extra_count:
+        chosen = random.Random(seed).sample(answers, extra_count)
+        examples.extend(dict(example) for example in chosen)
     return examples
 
 
@@ -86,12 +89,17 @@ def tokenize_example(tokenizer, example: dict[str, Any], max_length: int) -> dic
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", required=True)
-    parser.add_argument("--data", default="training/data/raw/golden.jsonl")
+    parser.add_argument("--data", default="training/data/splits/train.jsonl")
     parser.add_argument("--output", default="training/outputs/qwen3-0.6b-lora-smoke")
     parser.add_argument("--max-steps", type=int, default=40)
     parser.add_argument("--max-length", type=int, default=1536)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--answer-upsample", type=int, default=1, help="Repeat __answer__ examples N times to counter over-tooling")
+    parser.add_argument(
+        "--answer-multiplier",
+        type=float,
+        default=1.0,
+        help="Deterministically resample __answer__ decisions between 1.0 and 2.0",
+    )
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -99,7 +107,7 @@ def main() -> None:
     tokenizer = AutoTokenizer.from_pretrained(args.model)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
-    examples = load_examples(Path(args.data), answer_upsample=args.answer_upsample)
+    examples = load_examples(Path(args.data), answer_multiplier=args.answer_multiplier, seed=args.seed)
     random.shuffle(examples)
     records = [tokenize_example(tokenizer, example, args.max_length) for example in examples]
 
@@ -155,6 +163,7 @@ def main() -> None:
         "max_steps": args.max_steps,
         "max_length": args.max_length,
         "seed": args.seed,
+        "answer_multiplier": args.answer_multiplier,
         "trainable_parameters": trainable,
         "total_parameters": total,
         "trainable_percent": round(100 * trainable / total, 4),

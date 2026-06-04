@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { call } from "@/lib/api-client";
-import { mapWorkflowStages, type EvidenceRow, type WorkflowStage } from "./mapping.ts";
+import {
+  mapCandidatesFromResult,
+  mapWorkflowStages,
+  type CandidateCard,
+  type EvidenceRow,
+  type WorkflowStage,
+} from "./mapping.ts";
 
 interface ProjectRow {
   projectId: string;
@@ -144,6 +150,10 @@ export function ResearchPanel({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [candidates, setCandidates] = useState<CandidateCard[] | null>(null);
+  const [importingId, setImportingId] = useState<string | null>(null);
   const loadingRef = useRef(false);
 
   const refreshList = useCallback(async () => {
@@ -206,6 +216,42 @@ export function ResearchPanel({
       setBusy(false);
     }
   }, [refreshList]);
+
+  const handleSearchPapers = useCallback(async () => {
+    const query = searchQuery.trim();
+    if (!query) return;
+    setSearching(true);
+    setNotice(null);
+    try {
+      const result = await call("research.papers.search", { query });
+      const cards = mapCandidatesFromResult(JSON.stringify({ candidates: result.candidates }));
+      setCandidates(cards);
+      if (cards.length === 0) setNotice("没有找到开放论文,换个关键词试试。");
+    } catch (searchError) {
+      setNotice("搜索失败: " + (searchError instanceof Error ? searchError.message : String(searchError)));
+    } finally {
+      setSearching(false);
+    }
+  }, [searchQuery]);
+
+  const handleImportCandidate = useCallback(
+    async (card: CandidateCard) => {
+      if (!card.pdfUrl || importingId) return;
+      setImportingId(card.id);
+      setNotice(null);
+      try {
+        const result = await call("research.papers.import", { pdfUrl: card.pdfUrl, title: card.title });
+        setNotice("已下载并导入: " + result.project.title);
+        setProjectId(result.project.projectId);
+        await refreshList();
+      } catch (importError) {
+        setNotice("下载/导入失败: " + (importError instanceof Error ? importError.message : String(importError)));
+      } finally {
+        setImportingId(null);
+      }
+    },
+    [importingId, refreshList],
+  );
 
   if (!open) return null;
   const project = detail?.project ?? null;
@@ -298,6 +344,53 @@ export function ResearchPanel({
         </div>
       )}
       <div style={{ flex: 1, overflowY: "auto" }}>
+        <Section title="0 · 在线搜索论文(下载并导入为项目)" defaultOpen={false}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") void handleSearchPapers();
+              }}
+              placeholder="搜索 arXiv / OpenAlex 开放论文…"
+              style={{ flex: 1, fontSize: 12, padding: "4px 6px", minWidth: 0 }}
+            />
+            <button
+              type="button"
+              disabled={searching || !searchQuery.trim()}
+              onClick={() => void handleSearchPapers()}
+              style={{ padding: "4px 10px", fontSize: 12, cursor: searching ? "default" : "pointer", flexShrink: 0 }}
+            >
+              {searching ? "搜索中…" : "搜索"}
+            </button>
+          </div>
+          {candidates !== null && candidates.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, overflowY: "auto" }}>
+              {candidates.map((card) => (
+                <div key={card.id} style={{ border: "1px solid var(--border)", borderRadius: 6, padding: 6 }}>
+                  <div style={{ fontWeight: 600, fontSize: 11 }}>{card.title}</div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", margin: "2px 0 4px" }}>
+                    {card.authors.slice(0, 3).join(", ")}
+                    {card.authors.length > 3 ? " et al." : ""} ·{card.year ?? "?"} · {card.source}
+                    {card.pdfAvailable ? " · PDF 可用" : " · 无开放 PDF"}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={!card.pdfUrl || importingId !== null}
+                    onClick={() => void handleImportCandidate(card)}
+                    style={{ padding: "2px 8px", fontSize: 11, cursor: "pointer" }}
+                  >
+                    {importingId === card.id ? "导入中…" : "下载并导入"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          {candidates !== null && candidates.length === 0 && (
+            <div style={{ color: "var(--text-dim)", fontSize: 11 }}>无结果。换一个关键词试试。</div>
+          )}
+        </Section>
         {!project && !error && (
           <div style={{ padding: 16, color: "var(--text-dim)", fontSize: 12 }}>
             No research project. Import a PDF to begin.

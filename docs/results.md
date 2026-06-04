@@ -74,10 +74,11 @@ python training/tests/test_dataset_pipeline.py && python training/tests/test_pre
 - 入口:侧栏 Research 按钮(或右面板 Research 页签)→ 右侧面板 Research 页;Research Panel 已并入 files/browser/processes 右侧 tab 体系(Explorer / Browser / Processes / Research),不再是右滑 overlay;设置页 Research tab 亦可。
 - PDF 导入(piBridge.selectPdfFile → research.import)→ 项目列表;「在当前会话打开工作区」= handleCwdChange(workspacePath),科研工具随会话注入。
 - 论文候选卡片:research_search_papers ToolResult 渲染(标题/作者/年份/来源/摘要展开/PDF可用);「选择此论文」经 window 事件送入输入框 → Agent 调 research_download_paper(保留先展示-用户选择-再下载门禁)。
+- 在线搜索+一键导入(新):面板 Section「0 · 在线搜索论文」输入关键词 → research.papers.search(经 acquisition client 真网搜 arXiv/OpenAlex)→ 候选列表每项「下载并导入」→ research.papers.import(下载到受管 downloads 根目录 → importPdf 自动建项目并选中);live smoke 3 条真实候选 ~1.6s。
 - 证据与校验:research_search_evidence 证据行、research_finalize_answer 校验徽标(对话内 + 经 pi:evidence / pi:finalize 事件实时聚合到 Research Panel「引用与证据」区,含 p.X · chunk_id · score · 原文);证据 p.X 可点击、「当前论文」区「打开 PDF」——research.detail 现暴露 managedPdfPath 并授予项目根目录文件访问,在 FileViewer 中打开 PDF 并带 #page=N 锚点(best-effort;Electron 原生 PDF 预览不保证翻页,未引入 pdf.js)。
 - Research Panel 四区:当前论文(标题/页数/状态/ID/工作区/SHA256/错误)、8 阶段 Workflow(pending/running/succeeded/failed/blocked;仅 ready/completed 显示成功)、引用与证据、日志与产物(顶部「最近动态」时间线:PDF 导入进度 copying/parsing/indexing/complete/failed + 复现计划创建/阶段/步骤状态变迁/完成/阻塞,带时间戳与状态色点;下方步骤含 exitCode/artifactRef/artifactBytes/artifactSha256/repairRoundsUsed;确定性验收通过才 completed);detail 轮询 3s。
-- 后端接口:research.detail {projectId} → {project(含 managedPdfPath), reproduction|null, recentEvents};research.qwen.status/start/stop(本地 Qwen 推理服务生命周期)。
-- 测试:research 全套(含 event-log 6、qwen-tools 3、qwen-server 3、handlers 计数 87)、mapping 7/7、file-tab-state;tsc main+renderer 0、eslint 0、契约覆盖通过。
+- 后端接口:research.detail {projectId} → {project(含 managedPdfPath), reproduction|null, recentEvents};research.qwen.status/start/stop;research.papers.search {query,limit} / research.papers.import {pdfUrl,title}。
+- 测试:research 全套(含 event-log 6、qwen-tools 3、qwen-server 3、handlers 计数 89)、mapping 7/7、file-tab-state;tsc main+renderer 0、eslint 0、契约覆盖通过。
 - 截屏:docs/screenshot-research.png(主界面;面板交互页需在运行窗口操作后另截)。
 - 降级:recentEvents 为进程内环形账本(每项目上限 200、进程生命周期内有效,跨进程重启不保留;非 SQLite 持久化);PDF 页码定位为 #page=N best-effort(原生 PDF 预览不支持脚本化翻页,未引入 pdf.js);导入后打开=handleCwdChange(不会自动新建会话点击)。
 

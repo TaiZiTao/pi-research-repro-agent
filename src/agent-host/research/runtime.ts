@@ -2,6 +2,7 @@ import { exec } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
 import type { IngestionProgress, ResearchProject } from "../../shared/research/types.ts";
+import type { ResearchAcquisitionClient } from "./mcp-client.ts";
 import { createInMemoryAcquisitionTransport, createResearchAcquisitionClient } from "./mcp-client.ts";
 import { ResearchProjectService, type ProjectServiceOptions } from "./project-service.ts";
 import { ResearchProjectStore } from "./project-store.ts";
@@ -138,6 +139,16 @@ export function closeResearchRuntime(): void {
  * (<userData>/research/downloads), or undefined when PI_DESKTOP_USER_DATA is
  * unset or not an absolute path.
  */
+/** Downloads root used by the runtime for acquisition downloads, or undefined pre-init. */
+export function getResearchDownloadsRoot(): string | undefined {
+  return configuredResearchRoot === undefined ? undefined : path.join(configuredResearchRoot, "downloads");
+}
+
+/** The shared acquisition client once the runtime is initialized. */
+export async function getResearchAcquisitionClient(): Promise<ResearchAcquisitionClient | undefined> {
+  return acquisitionClient === undefined ? undefined : acquisitionClient;
+}
+
 export function researchAcquisitionDownloadsRoot(env: NodeJS.ProcessEnv = process.env): string | undefined {
   const userData = env.PI_DESKTOP_USER_DATA;
   if (typeof userData !== "string" || userData.trim().length === 0 || !path.isAbsolute(userData)) {

@@ -456,6 +456,35 @@ export interface Api {
     params: void;
     result: { stopped: boolean; error?: string };
   };
+  "research.papers.search": {
+    params: { query: string; limit?: number };
+    result: {
+      candidates: Array<{
+        id: string;
+        title: string;
+        authors: string[];
+        year: number | null;
+        venue: string | null;
+        abstract: string | null;
+        pdfUrl: string | null;
+        source: string;
+        identifiers: Record<string, string>;
+      }>;
+    };
+  };
+  "research.papers.import": {
+    params: { pdfUrl: string; title?: string };
+    result: {
+      project: {
+        projectId: string;
+        title: string;
+        status: string;
+        error: string | null;
+        workspacePath: string;
+      };
+      pdf: { sha256: string; bytes: number };
+    };
+  };
 
   // System / desktop helpers exposed via Host (or main-bridged)
   "system.home": { params: void; result: { home: string } };

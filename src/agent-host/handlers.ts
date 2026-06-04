@@ -116,7 +116,14 @@ import { initializeManagedProcessService } from "./managed-process/runtime";
 import { ManagedProcessError } from "./managed-process/service";
 import { listResearchEvents } from "./research/event-log";
 import { probeQwenServer, startQwenServer, stopQwenServer } from "./research/qwen-server";
-import { getReproductionPlanById, getResearchProjectById, getResearchProjectService } from "./research/runtime";
+import {
+  getReproductionPlanById,
+  getResearchAcquisitionClient,
+  getResearchDownloadsRoot,
+  getResearchProjectById,
+  getResearchProjectService,
+} from "./research/runtime";
+import { MAX_QUERY_LENGTH, MAX_SOURCE_RESULTS, MAX_URL_OR_PATH_LENGTH } from "../../mcp/research-acquisition/types";
 import type {
   ManagedProcessReadParams,
   ManagedProcessWaitParams,
@@ -826,6 +833,67 @@ export function registerHandlers(server: RpcServer): () => Promise<void> {
     "research.qwen.status": async () => probeQwenServer(),
     "research.qwen.start": () => startQwenServer(),
     "research.qwen.stop": () => stopQwenServer(),
+    "research.papers.search": async (params) => {
+      const input = params as { query?: unknown; limit?: unknown } | undefined;
+      const query = typeof input?.query === "string" ? input.query.trim() : "";
+      if (!query) throw new RpcError({ code: "BAD_REQUEST", message: "query required" });
+      if (query.length > MAX_QUERY_LENGTH) {
+        throw new RpcError({ code: "BAD_REQUEST", message: `query exceeds ${MAX_QUERY_LENGTH} characters` });
+      }
+      const limit =
+        typeof input?.limit === "number" && Number.isInteger(input.limit)
+          ? Math.min(Math.max(input.limit, 1), MAX_SOURCE_RESULTS)
+          : undefined;
+      const client = await getResearchAcquisitionClient();
+      if (!client) throw new RpcError({ code: "BAD_REQUEST", message: "research runtime unavailable" });
+      const candidates = await client.searchPapers(query, limit);
+      return { candidates };
+    },
+    "research.papers.import": async (params) => {
+      const input = params as { pdfUrl?: unknown; title?: unknown } | undefined;
+      const pdfUrl = typeof input?.pdfUrl === "string" ? input.pdfUrl.trim() : "";
+      if (!/^https:\/\//i.test(pdfUrl) || pdfUrl.length > MAX_URL_OR_PATH_LENGTH) {
+        throw new RpcError({ code: "BAD_REQUEST", message: "https pdf url required" });
+      }
+      const title =
+        typeof input?.title === "string" && input.title.trim() ? input.title.trim().slice(0, 200) : undefined;
+      const downloadsRoot = getResearchDownloadsRoot();
+      const client = await getResearchAcquisitionClient();
+      if (!downloadsRoot || !client) {
+        throw new RpcError({ code: "BAD_REQUEST", message: "research runtime unavailable" });
+      }
+      mkdirSync(downloadsRoot, { recursive: true });
+      let download: { path: string; sha256: string; bytes: number };
+      try {
+        download = await client.downloadPaper(pdfUrl, downloadsRoot);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new RpcError({
+          code: "BAD_REQUEST",
+          message: message.split(downloadsRoot).join("[redacted]").slice(0, 500),
+        });
+      }
+      try {
+        const project = await getResearchProjectService().importPdf({ sourcePath: download.path, title });
+        allowFileRoot(project.workspacePath);
+        return {
+          project: {
+            projectId: project.projectId,
+            title: project.title,
+            status: project.status,
+            error: project.error,
+            workspacePath: project.workspacePath,
+          },
+          pdf: { sha256: download.sha256, bytes: download.bytes },
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new RpcError({
+          code: "BAD_REQUEST",
+          message: message.split(downloadsRoot).join("[redacted]").slice(0, 500),
+        });
+      }
+    },
     "host.ping": () => ({ ok: true as const, ts: Date.now() }),
 
     "host.toolchain": async (params) => {

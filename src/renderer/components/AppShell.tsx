@@ -1889,6 +1889,7 @@ export function AppShell({
         open={researchOpen}
         sessionCwd={selectedSession?.cwd ?? newSessionCwd ?? null}
         onClose={() => setResearchOpen(false)}
+        onOpenInSession={(workspacePath) => handleCwdChange(workspacePath)}
       />
 
       {settingsOpen && (

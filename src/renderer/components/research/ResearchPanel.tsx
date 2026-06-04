@@ -39,6 +39,7 @@ interface ResearchPanelProps {
   open: boolean;
   sessionCwd: string | null;
   onClose: () => void;
+  onOpenInSession?: (workspacePath: string) => void;
 }
 
 const stageColor: Record<string, string> = {
@@ -104,7 +105,7 @@ function Section({
   );
 }
 
-export function ResearchPanel({ open, sessionCwd, onClose }: ResearchPanelProps) {
+export function ResearchPanel({ open, sessionCwd, onClose, onOpenInSession }: ResearchPanelProps) {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ProjectDetail | null>(null);
@@ -268,6 +269,15 @@ export function ResearchPanel({ open, sessionCwd, onClose }: ResearchPanelProps)
                 <Row label="工作区" value={project.workspacePath} mono />
                 <Row label="SHA256" value={project.sha256.slice(0, 12) + "…"} mono />
                 {project.error && <Row label="错误" value={project.error} danger />}
+                {onOpenInSession && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenInSession(project.workspacePath)}
+                    style={{ marginTop: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}
+                  >
+                    在当前会话打开工作区
+                  </button>
+                )}
               </div>
             </Section>
             <Section title="2 · Workflow 进度">

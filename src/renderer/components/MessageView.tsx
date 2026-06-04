@@ -1,7 +1,7 @@
 import { memo, useState, useRef, useEffect, useMemo, useSyncExternalStore } from "react";
 import { MarkdownBody } from "./MarkdownBody";
 import { scaledChatFont } from "@/lib/chat-appearance";
-import { mapCandidatesFromResult, type CandidateCard } from "./research/mapping.ts";
+import { mapCandidatesFromResult, mapEvidenceFromResult, type CandidateCard } from "./research/mapping.ts";
 import { useCopyFeedback } from "@/hooks/useCopyFeedback";
 import { parseCompactionSummary } from "@/lib/compaction-summary";
 import {
@@ -1131,6 +1131,12 @@ function ToolCallBlock({
           onSelect={(text) => window.dispatchEvent(new CustomEvent("pi:send-user-text", { detail: text }))}
         />
       )}
+      {block.toolName === "research_search_evidence" && resultText && !isError && (
+        <EvidenceHits resultText={resultText} />
+      )}
+      {block.toolName === "research_finalize_answer" && resultText && !isError && (
+        <FinalizeBadge resultText={resultText} />
+      )}
 
       {/* ── Expanded: input args ── */}
       {expanded && !isEditTool && (
@@ -2035,6 +2041,55 @@ function CandidateCardView(props: {
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+function EvidenceHits({ resultText }: { resultText: string }) {
+  const rows = mapEvidenceFromResult(resultText);
+  if (rows.length === 0) return null;
+  return (
+    <div
+      style={{
+        padding: "6px 12px 8px",
+        borderTop: "1px solid var(--tool-border)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+      }}
+    >
+      {rows.map((row) => (
+        <div key={row.chunkId} style={{ fontSize: 11, color: "var(--tool-fg)" }}>
+          <span style={{ fontWeight: 700 }}>
+            p.{row.page} · {row.chunkId}
+          </span>
+          <span style={{ color: "var(--text-dim)", marginLeft: 6 }}>score {row.score.toFixed(3)}</span>
+          <div style={{ opacity: 0.85, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+            {row.text.slice(0, 160)}
+            {row.text.length > 160 ? "…" : ""}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function FinalizeBadge({ resultText }: { resultText: string }) {
+  let accepted = false;
+  let detail = "";
+  try {
+    const parsed = JSON.parse(resultText) as { accepted?: unknown; errors?: unknown };
+    accepted = parsed.accepted === true;
+    detail = Array.isArray(parsed.errors) ? parsed.errors.join("; ") : "";
+  } catch {
+    return null;
+  }
+  return (
+    <div style={{ padding: "4px 12px", borderTop: "1px solid var(--tool-border)", fontSize: 11 }}>
+      <span style={{ color: accepted ? "#2e9e5b" : "var(--danger)", fontWeight: 700 }}>
+        {accepted ? "引用校验通过 (accepted)" : "引用校验失败"}
+      </span>
+      {detail && <span style={{ color: "var(--text-dim)", marginLeft: 6 }}>{detail.slice(0, 160)}</span>}
     </div>
   );
 }

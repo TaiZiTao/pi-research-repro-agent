@@ -90,6 +90,7 @@ python training/tests/test_dataset_pipeline.py && python training/tests/test_pre
 - 执行与安全:工具执行、finalize/configure/execute/download 等复杂参数与状态变更全部由 DeepSeek 经宿主安全门禁完成;Qwen 只参与"要不要/哪个/简单参数"的决策,不执行。
 - 服务:8123 OpenAI 兼容 + SSE(内容块 + finish_reason + [DONE]),/v1/models 探测;设置页 Research 提供启停与状态(不再写主模型目录)。
 - 测试:qwen-router 4/4(建议过滤/活动集校验/steer 前缀)、qwen-tools 3/3;双 tsc/eslint 通过。
+- 自主执行链模式(env RESEARCH_QWEN_AGENT=1,commit aedccc8):纯控制流引擎 qwen-agent.ts——Qwen 连续决策≤4 轮,宿主直接执行只读 research 工具(evidence/papers/repositories,仍受活动工具集校验),真实结果文本回填后 Qwen 再决策;**answer** 或建议状态类工具(finalize/plan/configure/execute/download)时停止,把证据链与待办交给 DeepSeek 执行并终答;JSONL 记 agent_chain(每步 action/arguments/ok/结果预览)。后端实测:论文问题 → Qwen 决策 research_search_evidence(真实调用,返回 projectId+hits)→ 链收尾 → 生成带证据链的终稿提示。单测 7/7(首答/状态工具转待办/执行失败停链/步数上限/终稿拼装)。
 
 ## 8. 训练数据均衡(evidence limit)
 

@@ -1,0 +1,146 @@
+{
+  "created": "2026-09-04",
+  "note": "gold pages located from paper text (pymupdf) via keyword anchors + human review; single best page per question",
+  "items": [
+    {
+      "id": "p1q1",
+      "paper": "A lightweight multi-window attention transformer for image super-resolution.pdf",
+      "query": "what is the MWAT-SR hierarchical multi-window attention strategy with window size growing",
+      "gold_pages": [2],
+      "note": "method section"
+    },
+    {
+      "id": "p1q2",
+      "paper": "A lightweight multi-window attention transformer for image super-resolution.pdf",
+      "query": "hybrid sparse-channel attention HSCA spatial sparse sampling channel semantic interaction",
+      "gold_pages": [2],
+      "note": "method"
+    },
+    {
+      "id": "p1q3",
+      "paper": "A lightweight multi-window attention transformer for image super-resolution.pdf",
+      "query": "training iterations 500K L1 loss Adam optimizer learning rate 5e-4 halved schedule",
+      "gold_pages": [6],
+      "note": "experimental settings"
+    },
+    {
+      "id": "p1q4",
+      "paper": "A lightweight multi-window attention transformer for image super-resolution.pdf",
+      "query": "evaluation benchmark datasets Set5 comparison with state of the art",
+      "gold_pages": [5],
+      "note": "experiments benchmarks (Set5 term p5)"
+    },
+    {
+      "id": "p1q5",
+      "paper": "A lightweight multi-window attention transformer for image super-resolution.pdf",
+      "query": "learning rate halved at iterations 250K 400K 450K 475K",
+      "gold_pages": [6],
+      "note": "settings"
+    },
+    {
+      "id": "p2q1",
+      "paper": "Chen_AMCANet_A_Lightweight_Architecture-guided_Multi-head_Convolution_Attention_Network_for_Efficient_CVPRW_2026_paper.pdf",
+      "query": "AMCANet architecture-guided multi-head convolution attention network efficient super-resolution",
+      "gold_pages": [1],
+      "note": "abstract"
+    },
+    {
+      "id": "p2q2",
+      "paper": "Chen_AMCANet_A_Lightweight_Architecture-guided_Multi-head_Convolution_Attention_Network_for_Efficient_CVPRW_2026_paper.pdf",
+      "query": "multi-head convolution block MHCB feature selective gate FSG network components",
+      "gold_pages": [2],
+      "note": "architecture figure text"
+    },
+    {
+      "id": "p2q3",
+      "paper": "Chen_AMCANet_A_Lightweight_Architecture-guided_Multi-head_Convolution_Attention_Network_for_Efficient_CVPRW_2026_paper.pdf",
+      "query": "training loss function same as SAFMN Adam optimizer cosine annealing learning rate",
+      "gold_pages": [6],
+      "note": "settings"
+    },
+    {
+      "id": "p2q4",
+      "paper": "Chen_AMCANet_A_Lightweight_Architecture-guided_Multi-head_Convolution_Attention_Network_for_Efficient_CVPRW_2026_paper.pdf",
+      "query": "two versions of AMCANet MHCB channels attention heads parameters complexity",
+      "gold_pages": [6],
+      "note": "settings"
+    },
+    {
+      "id": "p2q5",
+      "paper": "Chen_AMCANet_A_Lightweight_Architecture-guided_Multi-head_Convolution_Attention_Network_for_Efficient_CVPRW_2026_paper.pdf",
+      "query": "inference speed SRFormer-Light SwinIR-Light ELAN faster times",
+      "gold_pages": [7],
+      "note": "efficiency claims"
+    },
+    {
+      "id": "p3q1",
+      "paper": "Dual-domainModulationNetworkforLightweight.pdf",
+      "query": "dual-domain modulation network lightweight image super-resolution wavelet Fourier domain",
+      "gold_pages": [1],
+      "note": "abstract"
+    },
+    {
+      "id": "p3q2",
+      "paper": "Dual-domainModulationNetworkforLightweight.pdf",
+      "query": "SMT WMT spatial and frequency modulation modules DMNet",
+      "gold_pages": [3],
+      "note": "method"
+    },
+    {
+      "id": "p3q3",
+      "paper": "Dual-domainModulationNetworkforLightweight.pdf",
+      "query": "pixel reconstruction loss and frequency loss supervision",
+      "gold_pages": [3],
+      "note": "method losses"
+    },
+    {
+      "id": "p3q4",
+      "paper": "Dual-domainModulationNetworkforLightweight.pdf",
+      "query": "training DIV2K 800 pairs evaluation Set5 Set14 BSDS100 Urban100 Manga109 RealSRv3",
+      "gold_pages": [6],
+      "note": "experimental settings"
+    },
+    {
+      "id": "p3q5",
+      "paper": "Dual-domainModulationNetworkforLightweight.pdf",
+      "query": "ablation dynamic parameters FLOPs PSNR SSIM comparison",
+      "gold_pages": [9],
+      "note": "ablation table"
+    },
+    {
+      "id": "p4q1",
+      "paper": "Focus-guided feature fusion network for lightweight image super-resolution.pdf",
+      "query": "focus-guided feature fusion network lightweight super-resolution focus measurement asymmetric convolution",
+      "gold_pages": [1],
+      "note": "abstract"
+    },
+    {
+      "id": "p4q2",
+      "paper": "Focus-guided feature fusion network for lightweight image super-resolution.pdf",
+      "query": "FMU LRFFEM ACFEM impact on overall performance ablation",
+      "gold_pages": [7],
+      "note": "ablation section"
+    },
+    {
+      "id": "p4q3",
+      "paper": "Focus-guided feature fusion network for lightweight image super-resolution.pdf",
+      "query": "training DF2K dataset DIV2K Flickr2K 3450 images benchmarks",
+      "gold_pages": [6],
+      "note": "datasets"
+    },
+    {
+      "id": "p4q4",
+      "paper": "Focus-guided feature fusion network for lightweight image super-resolution.pdf",
+      "query": "L1 loss patch size 48 batch size 16 scale factor 4 training",
+      "gold_pages": [7],
+      "note": "training config"
+    },
+    {
+      "id": "p4q5",
+      "paper": "Focus-guided feature fusion network for lightweight image super-resolution.pdf",
+      "query": "Set5 Set14 Urban100 results parameters Multi-Adds comparison table",
+      "gold_pages": [10],
+      "note": "quantitative table"
+    }
+  ]
+}

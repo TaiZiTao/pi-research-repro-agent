@@ -412,6 +412,7 @@ export interface Api {
         error: string | null;
         workspacePath: string;
         sourcePdfName: string;
+        managedPdfPath: string;
         sha256: string;
         createdAt: string;
         updatedAt: string;
@@ -437,6 +438,23 @@ export interface Api {
       } | null;
       recentEvents: Array<{ type: string; stage?: string; message: string; createdAt: string }>;
     };
+  };
+  "research.qwen.status": {
+    params: void;
+    result: {
+      running: boolean;
+      starting: boolean;
+      models: string[];
+      error: string | null;
+    };
+  };
+  "research.qwen.start": {
+    params: void;
+    result: { ok: boolean; error?: string };
+  };
+  "research.qwen.stop": {
+    params: void;
+    result: { stopped: boolean; error?: string };
   };
 
   // System / desktop helpers exposed via Host (or main-bridged)

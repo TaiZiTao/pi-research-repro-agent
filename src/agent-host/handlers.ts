@@ -115,6 +115,7 @@ import { FileSuggestionRequestError, fileSuggestionService } from "./file-sugges
 import { initializeManagedProcessService } from "./managed-process/runtime";
 import { ManagedProcessError } from "./managed-process/service";
 import { listResearchEvents } from "./research/event-log";
+import { probeQwenServer, startQwenServer, stopQwenServer } from "./research/qwen-server";
 import { getReproductionPlanById, getResearchProjectById, getResearchProjectService } from "./research/runtime";
 import type {
   ManagedProcessReadParams,
@@ -780,6 +781,8 @@ export function registerHandlers(server: RpcServer): () => Promise<void> {
       if (!projectId) throw new RpcError({ code: "BAD_REQUEST", message: "projectId required" });
       const project = getResearchProjectById(projectId);
       if (!project) throw new RpcError({ code: "NOT_FOUND", message: "research project not found" });
+      // Renderer may open the managed PDF for page targeting: grant the project root.
+      allowFileRoot(project.workspacePath);
       const reproduction = getReproductionPlanById(projectId);
       return {
         project: {
@@ -790,6 +793,7 @@ export function registerHandlers(server: RpcServer): () => Promise<void> {
           error: project.error,
           workspacePath: project.workspacePath,
           sourcePdfName: project.sourcePdfName,
+          managedPdfPath: project.managedPdfPath,
           sha256: project.sha256,
           createdAt: project.createdAt,
           updatedAt: project.updatedAt,
@@ -819,6 +823,9 @@ export function registerHandlers(server: RpcServer): () => Promise<void> {
         recentEvents: listResearchEvents(projectId).map((event) => ({ ...event })),
       };
     },
+    "research.qwen.status": async () => probeQwenServer(),
+    "research.qwen.start": () => startQwenServer(),
+    "research.qwen.stop": () => stopQwenServer(),
     "host.ping": () => ({ ok: true as const, ts: Date.now() }),
 
     "host.toolchain": async (params) => {

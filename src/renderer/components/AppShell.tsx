@@ -59,6 +59,7 @@ type SessionCopyFeedback = { field: SessionCopyField; status: "copied" | "error"
 const EXPLORER_TAB_ID = "explorer";
 const BROWSER_TAB_ID = "browser";
 const PROCESSES_TAB_ID = "processes";
+const RESEARCH_TAB_ID = "research";
 const BROWSER_PANEL_WIDTH_KEY = "pi-desktop.browser-panel-width";
 const EMPTY_CHANNELS: ChannelsSnapshot = { accounts: [], statuses: [], pairings: [], bindings: [], activities: [] };
 
@@ -108,7 +109,6 @@ export function AppShell({
   const [sessionKey, setSessionKey] = useState(0);
   const [explorerRefreshKey, setExplorerRefreshKey] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [researchOpen, setResearchOpen] = useState(false);
   const [researchEvidence, setResearchEvidence] = useState<EvidenceRow[]>([]);
   const [finalizeStatus, setFinalizeStatus] = useState<{ accepted: boolean; errors: string } | null>(null);
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>("general");
@@ -679,6 +679,26 @@ export function AppShell({
     [handleOpenFile, selectedSession?.id],
   );
 
+  const handleOpenPdf = useCallback(
+    (pdfPath: string, page?: number) => {
+      handleOpenFile(pdfPath, getFileName(pdfPath), selectedSession?.id ?? null);
+      if (page !== undefined) {
+        // Refresh the tab anchor so clicking another page on the same PDF re-targets it.
+        dispatchFileTab({
+          type: "open",
+          tab: {
+            id: `file:${pdfPath}`,
+            label: getFileName(pdfPath),
+            filePath: pdfPath,
+            sourceSessionId: selectedSession?.id ?? null,
+            initialPage: page,
+          },
+        });
+      }
+    },
+    [handleOpenFile, selectedSession?.id],
+  );
+
   const handleCloseFileTab = useCallback((tabId: string) => {
     dispatchFileTab({ type: "close", tabId, fallbackTabId: EXPLORER_TAB_ID });
   }, []);
@@ -771,7 +791,10 @@ export function AppShell({
         </button>
         <button
           type="button"
-          onClick={() => setResearchOpen(true)}
+          onClick={() => {
+            dispatchFileTab({ type: "select", tabId: RESEARCH_TAB_ID });
+            openRightPanel();
+          }}
           title="Research (paper projects)"
           style={{
             width: "100%",
@@ -1747,6 +1770,43 @@ export function AppShell({
                 </span>
               )}
             </button>
+            <button
+              type="button"
+              onClick={() => dispatchFileTab({ type: "select", tabId: RESEARCH_TAB_ID })}
+              aria-pressed={activeFileTabId === RESEARCH_TAB_ID}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                height: 36,
+                padding: "0 12px",
+                flexShrink: 0,
+                background: activeFileTabId === RESEARCH_TAB_ID ? "var(--bg)" : "var(--bg-panel)",
+                border: "none",
+                borderRight: "1px solid var(--border)",
+                color: activeFileTabId === RESEARCH_TAB_ID ? "var(--text)" : "var(--text-muted)",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: activeFileTabId === RESEARCH_TAB_ID ? 500 : 400,
+              }}
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M9.3 3.7a1 1 0 0 1 1.4 0L12 5l1.3-1.3a1 1 0 0 1 1.4 1.4L13.4 6.4 18 11h-6V5.6l-1.3-1.3a1 1 0 0 1 0-1.4Z" />
+                <path d="M3 21h18" />
+                <path d="M4 21V11m4 10V11m4 10v-7m4 7v-7m4 7v-7" />
+              </svg>
+              {t("researchPanel", "Research")}
+            </button>
             <div style={{ flex: 1, overflow: "hidden" }}>
               <TabBar
                 tabs={fileTabs}
@@ -1839,12 +1899,24 @@ export function AppShell({
                   {t("selectProjectToBrowseFiles", "Select a project to browse files")}
                 </div>
               )
+            ) : activeFileTabId === RESEARCH_TAB_ID ? (
+              <ResearchPanel
+                open
+                sessionCwd={selectedSession?.cwd ?? newSessionCwd ?? null}
+                onClose={() => dispatchFileTab({ type: "select", tabId: EXPLORER_TAB_ID })}
+                onOpenInSession={(workspacePath) => handleCwdChange(workspacePath)}
+                onOpenPdf={handleOpenPdf}
+                researchEvidence={researchEvidence}
+                finalizeStatus={finalizeStatus}
+                embedded
+              />
             ) : activeFileTab?.filePath ? (
               <FileViewer
-                key={activeFileTab.id ?? activeFileTab.filePath}
+                key={(activeFileTab.id ?? activeFileTab.filePath) + (activeFileTab.initialPage ?? "")}
                 filePath={activeFileTab.filePath}
                 cwd={activeCwd ?? undefined}
                 sourceSessionId={activeFileTab.sourceSessionId}
+                initialPage={activeFileTab.initialPage}
               />
             ) : (
               <div
@@ -1908,14 +1980,6 @@ export function AppShell({
           <line x1="15" y1="3" x2="15" y2="21" />
         </svg>
       </button>
-      <ResearchPanel
-        open={researchOpen}
-        sessionCwd={selectedSession?.cwd ?? newSessionCwd ?? null}
-        onClose={() => setResearchOpen(false)}
-        onOpenInSession={(workspacePath) => handleCwdChange(workspacePath)}
-        researchEvidence={researchEvidence}
-        finalizeStatus={finalizeStatus}
-      />
 
       {settingsOpen && (
         <SettingsConfig

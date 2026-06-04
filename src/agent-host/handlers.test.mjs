@@ -45,7 +45,7 @@ async function captureHandlers() {
 test("registerHandlers exposes every contract method exactly once", async () => {
   const { handlers } = await captureHandlers();
   // Keep in sync with src/contract/api.ts: one handler per contract method.
-  assert.equal(Object.keys(handlers).length, 84);
+  assert.equal(Object.keys(handlers).length, 87);
   for (const method of [
     "host.ping",
     "host.toolchain",
@@ -77,6 +77,9 @@ test("registerHandlers exposes every contract method exactly once", async () => 
     "research.list",
     "research.import",
     "research.detail",
+    "research.qwen.status",
+    "research.qwen.start",
+    "research.qwen.stop",
   ]) {
     assert.equal(typeof handlers[method], "function", `${method} must be registered`);
   }

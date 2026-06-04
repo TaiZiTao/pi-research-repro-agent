@@ -71,12 +71,26 @@ python training/tests/test_dataset_pipeline.py && python training/tests/test_pre
 
 ## 6. 桌面端科研演示(commits d928f87 / 41b3e90 / 42a61fc)
 
-- 入口:侧栏 Research 按钮 → 右滑 Research Panel;设置页 Research tab 亦可。
+- 入口:侧栏 Research 按钮(或右面板 Research 页签)→ 右侧面板 Research 页;Research Panel 已并入 files/browser/processes 右侧 tab 体系(Explorer / Browser / Processes / Research),不再是右滑 overlay;设置页 Research tab 亦可。
 - PDF 导入(piBridge.selectPdfFile → research.import)→ 项目列表;「在当前会话打开工作区」= handleCwdChange(workspacePath),科研工具随会话注入。
 - 论文候选卡片:research_search_papers ToolResult 渲染(标题/作者/年份/来源/摘要展开/PDF可用);「选择此论文」经 window 事件送入输入框 → Agent 调 research_download_paper(保留先展示-用户选择-再下载门禁)。
-- 证据与校验:research_search_evidence 证据行、research_finalize_answer 校验徽标(对话内 + 经 pi:evidence / pi:finalize 事件实时聚合到 Research Panel「引用与证据」区,含 p.X · chunk_id · score · 原文)。
+- 证据与校验:research_search_evidence 证据行、research_finalize_answer 校验徽标(对话内 + 经 pi:evidence / pi:finalize 事件实时聚合到 Research Panel「引用与证据」区,含 p.X · chunk_id · score · 原文);证据 p.X 可点击、「当前论文」区「打开 PDF」——research.detail 现暴露 managedPdfPath 并授予项目根目录文件访问,在 FileViewer 中打开 PDF 并带 #page=N 锚点(best-effort;Electron 原生 PDF 预览不保证翻页,未引入 pdf.js)。
 - Research Panel 四区:当前论文(标题/页数/状态/ID/工作区/SHA256/错误)、8 阶段 Workflow(pending/running/succeeded/failed/blocked;仅 ready/completed 显示成功)、引用与证据、日志与产物(顶部「最近动态」时间线:PDF 导入进度 copying/parsing/indexing/complete/failed + 复现计划创建/阶段/步骤状态变迁/完成/阻塞,带时间戳与状态色点;下方步骤含 exitCode/artifactRef/artifactBytes/artifactSha256/repairRoundsUsed;确定性验收通过才 completed);detail 轮询 3s。
-- 后端接口:research.detail {projectId} → {project, reproduction|null, recentEvents}。
-- 测试:mapping 7/7(候选/证据/Workflow 映射与空态/失败不显示成功);tsc main+renderer 0、eslint 0。
+- 后端接口:research.detail {projectId} → {project(含 managedPdfPath), reproduction|null, recentEvents};research.qwen.status/start/stop(本地 Qwen 推理服务生命周期)。
+- 测试:research 全套(含 event-log 6、qwen-tools 3、qwen-server 3、handlers 计数 87)、mapping 7/7、file-tab-state;tsc main+renderer 0、eslint 0、契约覆盖通过。
 - 截屏:docs/screenshot-research.png(主界面;面板交互页需在运行窗口操作后另截)。
-- 降级:recentEvents 为进程内环形账本(每项目上限 200、进程生命周期内有效,跨进程重启不保留;非 SQLite 持久化);Panel 以右滑层呈现(未并入 files/browser 右侧 tab 体系);PDF 页码定位跳转未实现(展示 p.X · chunk_id 文本);导入后打开=handleCwdChange(不会自动新建会话点击)。
+- 降级:recentEvents 为进程内环形账本(每项目上限 200、进程生命周期内有效,跨进程重启不保留;非 SQLite 持久化);PDF 页码定位为 #page=N best-effort(原生 PDF 预览不支持脚本化翻页,未引入 pdf.js);导入后打开=handleCwdChange(不会自动新建会话点击)。
+
+## 7. Qwen 本地模型会话切换(本轮实现)
+
+- 生命周期 RPC:research.qwen.status/start/stop;设置页 Research tab「Qwen 本地科研模型」区:启动/停止/刷新 + 「写入模型配置」一键合并 models config(provider research-qwen, baseUrl http://127.0.0.1:8123/v1, api openai-completions, model qwen3-0.6b),409 冲突自动重试。
+- 服务:复用 python/agent_shadow/qwen_openai_server.py(spawn, env RESEARCH_QWEN_MODEL/ADAPTER 沿用 qwen-shadow 默认 D:\anaconda3\python.exe + E:\deepseek\models\Qwen3-0.6B);/v1/models 探测判定 running/starting。
+- 安全门禁(research-only tool gate):会话模型为 research-qwen 时,AgentSessionWrapper 把活动工具收窄为 research_* 工具集——set_model 时、恢复会话时、显式工具请求时均强制;浏览器工具激活被抑制;bash/files/browser/process/managed-process 保持注册但不激活;切回其他 provider 恢复原工具集。测试 qwen-tools 3/3。
+- 会话切换方式:设置页写入 provider → 新建会话 → 模型选择器选 research-qwen / qwen3-0.6b → 主机把该会话当成科研-only 会话。Qwen 仍是科研工具决策者,不是通用助手;生产会话继续由 DeepSeek 驱动。
+
+## 8. 训练数据均衡(evidence limit)
+
+- 现象:research_search_evidence 的 limit 参数训练几乎全为 5(唯一例外 1 条 3);评测侧 evidence 查询可能要求其他取值 → 参数匹配率受损。
+- 修复:training/generate_golden.py 引入全局轮换 _EVIDENCE_LIMIT_CYCLE=(5,3,8),每个 research_search_evidence 调用依次取下一值(确定性)。
+- 数据集(257 轨迹)重建后统计:research_search_evidence 调用 42 次,limit 3/5/8 = 14/14/14(原 41×5 + 1×3);validate_dataset 通过。
+- 对照实验:40 步 balanced-v2 训练 + 111 条评测结果见 commit/文件(本会话后台运行后如实记录,不伪造)。

@@ -3,6 +3,8 @@ export interface FileTab {
   label: string;
   filePath: string;
   sourceSessionId?: string | null;
+  /** Best-effort PDF page anchor passed to the file viewer (native viewer may ignore). */
+  initialPage?: number;
 }
 
 export interface FileTabState {
@@ -26,9 +28,17 @@ export function reduceFileTabState(state: FileTabState, action: FileTabAction): 
       ? [...state.tabs, action.tab]
       : action.tab.sourceSessionId && existing.sourceSessionId !== action.tab.sourceSessionId
         ? state.tabs.map((tab) =>
-            tab.id === action.tab.id ? { ...tab, sourceSessionId: action.tab.sourceSessionId } : tab,
+            tab.id === action.tab.id
+              ? {
+                  ...tab,
+                  sourceSessionId: action.tab.sourceSessionId,
+                  ...(action.tab.initialPage !== undefined ? { initialPage: action.tab.initialPage } : {}),
+                }
+              : tab,
           )
-        : state.tabs;
+        : action.tab.initialPage !== undefined && existing.initialPage !== action.tab.initialPage
+          ? state.tabs.map((tab) => (tab.id === action.tab.id ? { ...tab, initialPage: action.tab.initialPage } : tab))
+          : state.tabs;
     return { tabs, activeTabId: action.tab.id };
   }
 

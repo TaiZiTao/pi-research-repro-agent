@@ -124,6 +124,184 @@ export function ResearchSettings() {
           </div>
         );
       })}
+      <QwenServeSection />
     </div>
   );
+}
+
+const QWEN_PROVIDER = "research-qwen";
+const QWEN_BASE_URL = "http://127.0.0.1:8123/v1";
+
+interface QwenStatusRow {
+  running: boolean;
+  starting: boolean;
+  models: string[];
+  error: string | null;
+}
+
+function QwenServeSection() {
+  const [status, setStatus] = useState<QwenStatusRow | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setNotice(null);
+    try {
+      const result = await call("research.qwen.status");
+      setStatus(result as QwenStatusRow);
+    } catch (error) {
+      setNotice("Status failed: " + (error instanceof Error ? error.message : String(error)));
+    }
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const handleStart = useCallback(async () => {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const result = await call("research.qwen.start");
+      const started = result as { ok?: boolean; error?: string };
+      setNotice(
+        started.ok
+          ? "Server starting — model loads once, then /v1/models answers (first reply can take a while)."
+          : "Start failed: " + (started.error ?? "unknown error"),
+      );
+      await refresh();
+    } catch (error) {
+      setNotice("Start failed: " + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setBusy(false);
+    }
+  }, [refresh]);
+
+  const handleStop = useCallback(async () => {
+    setBusy(true);
+    setNotice(null);
+    try {
+      const result = await call("research.qwen.stop");
+      const stopped = result as { stopped?: boolean; error?: string };
+      setNotice(
+        stopped.stopped ? "Server stopped." : "Nothing to stop." + (stopped.error ? ` (${stopped.error})` : ""),
+      );
+      await refresh();
+    } catch (error) {
+      setNotice("Stop failed: " + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setBusy(false);
+    }
+  }, [refresh]);
+
+  const handleConfigure = useCallback(async () => {
+    setBusy(true);
+    setNotice(null);
+    try {
+      await writeQwenProviderConfig();
+      setNotice(
+        `Provider “${QWEN_PROVIDER}” written to models config. Start a new session and pick model research-qwen / qwen3-0.6b.`,
+      );
+    } catch (error) {
+      setNotice("Configure failed: " + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
+
+  const stateText =
+    status === null
+      ? "checking…"
+      : status.running
+        ? `running · ${status.models.join(", ")}`
+        : status.starting
+          ? "starting (model loading)…"
+          : "stopped";
+  const stateColor = status === null ? "#777" : status.running ? "#2e7d32" : status.starting ? "#b58900" : "#555";
+
+  return (
+    <div style={{ marginTop: 18, borderTop: "1px solid rgba(128,128,128,0.25)", paddingTop: 12 }}>
+      <strong style={{ display: "block", marginBottom: 6 }}>Qwen 本地科研模型(会话切换)</strong>
+      <div style={{ fontSize: 12, color: "#777", lineHeight: 1.6, marginBottom: 8 }}>
+        在设置启动本地 Qwen3 LoRA OpenAI 兼容服务并写入模型配置后,新会话可在模型选择器选 research-qwen /
+        qwen3-0.6b。安全门禁:该模型的活动工具自动收窄为 research_* 工具集, 不能调用 bash / 文件 / 浏览器 / 进程等工具。
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 13, fontWeight: 600, color: stateColor }}>{stateText}</span>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void handleStart()}
+          style={{ padding: "3px 10px", cursor: "pointer", fontSize: 12 }}
+        >
+          启动服务
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void handleStop()}
+          style={{ padding: "3px 10px", cursor: "pointer", fontSize: 12 }}
+        >
+          停止服务
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void handleConfigure()}
+          style={{ padding: "3px 10px", cursor: "pointer", fontSize: 12 }}
+        >
+          写入模型配置
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void refresh()}
+          style={{ padding: "3px 10px", cursor: "pointer", fontSize: 12 }}
+        >
+          刷新状态
+        </button>
+      </div>
+      {notice && <div style={{ margin: "6px 0", color: "#555", fontSize: 12 }}>{notice}</div>}
+    </div>
+  );
+}
+
+async function writeQwenProviderConfig(): Promise<void> {
+  const entry = {
+    api: "openai-completions",
+    baseUrl: QWEN_BASE_URL,
+    models: [
+      {
+        id: "qwen3-0.6b",
+        name: "Qwen3-0.6B LoRA (local research)",
+        api: "openai-completions",
+        contextWindow: 8192,
+        maxTokens: 2048,
+      },
+    ],
+  };
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const snapshotResponse = await fetch("/api/models-config");
+    const snapshot = (await snapshotResponse.json()) as {
+      config?: { providers?: Record<string, unknown> };
+      version?: string;
+      error?: string;
+    };
+    if (snapshot.error) throw new Error(snapshot.error);
+    if (typeof snapshot.version !== "string") throw new Error("Invalid models config snapshot");
+    const providers = { ...(snapshot.config?.providers ?? {}) };
+    providers[QWEN_PROVIDER] = { ...(providers[QWEN_PROVIDER] as Record<string, unknown> | undefined), ...entry };
+    const config = { ...(snapshot.config ?? {}), providers };
+    const response = await fetch("/api/models-config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ config, expectedVersion: snapshot.version }),
+    });
+    const data = (await response.json()) as { error?: string; code?: string; version?: string };
+    if (response.ok && !data.error && typeof data.version === "string") return;
+    if (response.status !== 409 && data.code !== "CONFLICT") {
+      throw new Error(data.error ?? `HTTP ${response.status}`);
+    }
+  }
+  throw new Error("models config kept changing; retry or edit it in Settings > Models");
 }

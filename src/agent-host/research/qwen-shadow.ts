@@ -42,8 +42,8 @@ export interface ShadowLogRecord {
   note?: string;
 }
 
-const DEFAULT_PYTHON = "D:\\anaconda3\\python.exe";
-const DEFAULT_MODEL = "E:\\deepseek\\models\\Qwen3-0.6B";
+export const DEFAULT_PYTHON = "D:\\anaconda3\\python.exe";
+export const DEFAULT_MODEL = "E:\\deepseek\\models\\Qwen3-0.6B";
 
 export function sha256Short(value: string): string {
   return createHash("sha256").update(value).digest("hex").slice(0, 16);

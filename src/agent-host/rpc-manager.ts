@@ -35,6 +35,7 @@ import { peekManagedProcessService } from "./managed-process/runtime";
 import { createManagedProcessToolDefinitions } from "./managed-process/tools";
 import { installManagedProcessSessionRedaction } from "./managed-process/session-redaction";
 import { createResearchRuntimeTools } from "./research/runtime";
+import { RESEARCH_QWEN_PROVIDER, researchOnlyToolNames } from "./research/qwen-tools";
 import {
   buildShadowContext,
   createQwenShadow,
@@ -269,6 +270,8 @@ export class AgentSessionWrapper {
   private disposePromise: Promise<void> | null = null;
   private _alive = true;
   private requestedToolNames: string[] | undefined;
+  private qwenGateActive = false;
+  private preQwenRequestedToolNames: string[] | undefined;
   private readonly persistToolNames: (sessionId: string, toolNames: string[]) => void;
 
   constructor(
@@ -328,6 +331,8 @@ export class AgentSessionWrapper {
   }
 
   syncBrowserToolActivation(): void {
+    // Research-only Qwen gate: never activate browser tools while active.
+    if (this.qwenGateActive) return;
     if (this.forceEmptySystemPrompt) {
       this.inner.setActiveToolsByName([]);
       return;
@@ -472,10 +477,56 @@ export class AgentSessionWrapper {
 
   private applyRequestedTools(toolNames: string[]): void {
     this.requestedToolNames = [...toolNames];
+    if (this.qwenGateActive) {
+      // Qwen is research-only: even explicit tool requests are narrowed.
+      this.forceEmptySystemPrompt = false;
+      const all = this.inner.getAllTools().map((tool) => tool.name);
+      this.inner.setActiveToolsByName(researchOnlyToolNames(all, toolNames));
+      this.applyForcedEmptySystemPrompt();
+      return;
+    }
     this.forceEmptySystemPrompt = toolNames.length === 0;
     this.inner.setActiveToolsByName(withExtensionTools(this.inner, toolNames));
     this.syncBrowserToolActivation();
     this.applyForcedEmptySystemPrompt();
+  }
+
+  /**
+   * Research-only tool gate for the local Qwen provider: narrows the ACTIVE
+   * tool set to research_* tools, keeps the registry untouched, and restores
+   * the previous set when the model switches away from research-qwen.
+   */
+  private enforceQwenModelToolGate(provider: string | undefined): void {
+    const isQwen = provider === RESEARCH_QWEN_PROVIDER;
+    if (isQwen && !this.qwenGateActive) {
+      this.preQwenRequestedToolNames = this.requestedToolNames === undefined ? undefined : [...this.requestedToolNames];
+      this.qwenGateActive = true;
+    } else if (!isQwen && this.qwenGateActive) {
+      this.qwenGateActive = false;
+      const restore = this.preQwenRequestedToolNames;
+      this.preQwenRequestedToolNames = undefined;
+      if (restore === undefined) {
+        const all = this.inner.getAllTools().map((tool) => tool.name);
+        this.inner.setActiveToolsByName(withExtensionTools(this.inner, all));
+      } else if (restore.length === 0) {
+        this.inner.setActiveToolsByName([]);
+      } else {
+        this.inner.setActiveToolsByName(withExtensionTools(this.inner, restore));
+      }
+      this.syncBrowserToolActivation();
+      return;
+    }
+    if (isQwen) {
+      this.forceEmptySystemPrompt = false;
+      const all = this.inner.getAllTools().map((tool) => tool.name);
+      this.inner.setActiveToolsByName(researchOnlyToolNames(all, this.requestedToolNames));
+      this.applyForcedEmptySystemPrompt();
+    }
+  }
+
+  /** Apply the research-only gate when the restored session model is the Qwen provider. */
+  applyQwenModelToolGateForCurrentModel(): void {
+    this.enforceQwenModelToolGate(this.inner.model?.provider);
   }
 
   private applyToolchainSummary(): void {
@@ -710,6 +761,7 @@ export class AgentSessionWrapper {
         const model = this.inner.modelRuntime.getModel(provider, modelId);
         if (!model) throw new Error(`Model not found: ${provider}/${modelId}`);
         await this.inner.setModel(model);
+        this.enforceQwenModelToolGate(model.provider);
         return { id: model.id, provider: model.provider };
       }
 
@@ -1549,6 +1601,7 @@ export async function startRpcSession(
     wrapper.setToolchainSummary(executionContext.inventoryRevision, executionContext.summary);
     wrapper.start();
     attachShadowObserver(wrapper);
+    wrapper.applyQwenModelToolGateForCurrentModel();
     wrapper.syncBrowserToolActivation();
 
     const realSessionFile = inner.sessionFile as string | undefined;

@@ -593,7 +593,7 @@ function AudioViewer({ filePath, cwd, sourceSessionId }: Props) {
   );
 }
 
-function DocumentViewer({ filePath, cwd, sourceSessionId }: Props) {
+function DocumentViewer({ filePath, cwd, sourceSessionId, initialPage }: Props & { initialPage?: number }) {
   const { isDark } = useTheme();
   const { language, t } = useI18n();
   const [bust, setBust] = useState(0);
@@ -763,8 +763,8 @@ function DocumentViewer({ filePath, cwd, sourceSessionId }: Props) {
           </div>
         ) : (
           <iframe
-            key={previewUrl}
-            src={previewUrl}
+            key={isPdf && initialPage ? `${previewUrl}#page=${initialPage}` : previewUrl}
+            src={isPdf && initialPage ? `${previewUrl}#page=${initialPage}` : previewUrl}
             sandbox={isPdf ? undefined : ""}
             title={t("filePreviewTitle", "Preview {name}").replace("{name}", getFileName(filePath))}
             style={{ width: "100%", height: "100%", border: "none", background: "var(--bg)" }}
@@ -775,7 +775,7 @@ function DocumentViewer({ filePath, cwd, sourceSessionId }: Props) {
   );
 }
 
-export function FileViewer({ filePath, cwd, sourceSessionId }: Props) {
+export function FileViewer({ filePath, cwd, sourceSessionId, initialPage }: Props & { initialPage?: number }) {
   if (isImagePath(filePath)) {
     return <ImageViewer filePath={filePath} cwd={cwd} sourceSessionId={sourceSessionId} />;
   }
@@ -783,7 +783,7 @@ export function FileViewer({ filePath, cwd, sourceSessionId }: Props) {
     return <AudioViewer filePath={filePath} cwd={cwd} sourceSessionId={sourceSessionId} />;
   }
   if (isDocumentPreviewPath(filePath)) {
-    return <DocumentViewer filePath={filePath} cwd={cwd} sourceSessionId={sourceSessionId} />;
+    return <DocumentViewer filePath={filePath} cwd={cwd} sourceSessionId={sourceSessionId} initialPage={initialPage} />;
   }
   return <TextFileViewer filePath={filePath} cwd={cwd} sourceSessionId={sourceSessionId} />;
 }

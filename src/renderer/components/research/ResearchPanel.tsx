@@ -12,7 +12,7 @@ interface ProjectRow {
   createdAt: string;
 }
 interface ProjectDetail {
-  project: ProjectRow & { sourcePdfName: string; sha256: string; updatedAt: string };
+  project: ProjectRow & { sourcePdfName: string; sha256: string; updatedAt: string; managedPdfPath?: string };
   reproduction: {
     phase: string;
     title: string;
@@ -40,8 +40,11 @@ interface ResearchPanelProps {
   sessionCwd: string | null;
   onClose: () => void;
   onOpenInSession?: (workspacePath: string) => void;
+  onOpenPdf?: (pdfPath: string, page?: number) => void;
   researchEvidence?: EvidenceRow[];
   finalizeStatus?: { accepted: boolean; errors: string } | null;
+  /** Renders inline inside the app right-panel tab system instead of a fixed overlay. */
+  embedded?: boolean;
 }
 
 const stageColor: Record<string, string> = {
@@ -130,8 +133,10 @@ export function ResearchPanel({
   sessionCwd,
   onClose,
   onOpenInSession,
+  onOpenPdf,
   researchEvidence,
   finalizeStatus,
+  embedded = false,
 }: ResearchPanelProps) {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -210,23 +215,35 @@ export function ResearchPanel({
   const status = project?.status ?? null;
   return (
     <div
-      role="dialog"
+      role={embedded ? undefined : "dialog"}
       aria-label="Research panel"
-      style={{
-        position: "fixed",
-        top: 0,
-        right: 0,
-        bottom: 0,
-        width: "min(380px, 38vw)",
-        background: "var(--bg-panel, #fff)",
-        borderLeft: "1px solid var(--border)",
-        boxShadow: "-8px 0 24px rgba(0,0,0,0.08)",
-        display: "flex",
-        flexDirection: "column",
-        zIndex: 900,
-        fontFamily: "var(--font-ui, system-ui)",
-        color: "var(--text)",
-      }}
+      style={
+        embedded
+          ? {
+              display: "flex",
+              flexDirection: "column",
+              height: "100%",
+              overflow: "hidden",
+              fontFamily: "var(--font-ui, system-ui)",
+              color: "var(--text)",
+              background: "var(--bg)",
+            }
+          : {
+              position: "fixed",
+              top: 0,
+              right: 0,
+              bottom: 0,
+              width: "min(380px, 38vw)",
+              background: "var(--bg-panel, #fff)",
+              borderLeft: "1px solid var(--border)",
+              boxShadow: "-8px 0 24px rgba(0,0,0,0.08)",
+              display: "flex",
+              flexDirection: "column",
+              zIndex: 900,
+              fontFamily: "var(--font-ui, system-ui)",
+              color: "var(--text)",
+            }
+      }
     >
       <div
         style={{
@@ -297,15 +314,26 @@ export function ResearchPanel({
                 <Row label="工作区" value={project.workspacePath} mono />
                 <Row label="SHA256" value={project.sha256.slice(0, 12) + "…"} mono />
                 {project.error && <Row label="错误" value={project.error} danger />}
-                {onOpenInSession && (
-                  <button
-                    type="button"
-                    onClick={() => onOpenInSession(project.workspacePath)}
-                    style={{ marginTop: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}
-                  >
-                    在当前会话打开工作区
-                  </button>
-                )}
+                <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                  {onOpenInSession && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenInSession(project.workspacePath)}
+                      style={{ padding: "4px 10px", fontSize: 12, cursor: "pointer" }}
+                    >
+                      在当前会话打开工作区
+                    </button>
+                  )}
+                  {onOpenPdf && project.managedPdfPath && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenPdf(project.managedPdfPath as string)}
+                      style={{ padding: "4px 10px", fontSize: 12, cursor: "pointer" }}
+                    >
+                      打开 PDF
+                    </button>
+                  )}
+                </div>
               </div>
             </Section>
             <Section title="2 · Workflow 进度">
@@ -337,8 +365,28 @@ export function ResearchPanel({
                 <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 180, overflowY: "auto" }}>
                   {(researchEvidence ?? []).map((row) => (
                     <div key={row.chunkId} style={{ borderBottom: "1px solid var(--border)", paddingBottom: 4 }}>
-                      <div style={{ fontWeight: 700 }}>
-                        p.{row.page} · {row.chunkId}{" "}
+                      <div style={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 6 }}>
+                        {onOpenPdf && project.managedPdfPath ? (
+                          <button
+                            type="button"
+                            onClick={() => onOpenPdf(project.managedPdfPath as string, row.page)}
+                            title={`打开 PDF 到第 ${row.page} 页`}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              padding: 0,
+                              color: "var(--accent)",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              cursor: "pointer",
+                            }}
+                          >
+                            p.{row.page}
+                          </button>
+                        ) : (
+                          <span>p.{row.page}</span>
+                        )}
+                        <span>· {row.chunkId}</span>
                         <span style={{ color: "var(--text-dim)", fontWeight: 400 }}>score {row.score.toFixed(3)}</span>
                       </div>
                       <div style={{ color: "var(--text-muted)", fontSize: 11, wordBreak: "break-word" }}>

@@ -9,6 +9,7 @@ temp/
 .env
 .env.*
 .artifacts/
+eval/rag2026/corpus-manifest.local.json
 build/toolchains/.core-cache/
 build/toolchains/core/
 native/**/target/

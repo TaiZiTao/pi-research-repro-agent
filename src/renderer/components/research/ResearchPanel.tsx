@@ -32,7 +32,7 @@ interface ProjectDetail {
       artifactSha256: string | null;
     }>;
   } | null;
-  recentEvents: unknown[];
+  recentEvents: Array<{ type: string; stage?: string; message: string; createdAt: string }>;
 }
 
 interface ResearchPanelProps {
@@ -51,6 +51,24 @@ const stageColor: Record<string, string> = {
   failed: "var(--danger)",
   blocked: "#b58900",
 };
+
+function eventDotColor(event: { type: string; stage?: string }): string {
+  const state = event.stage ?? event.type;
+  if (state === "failed" || state === "blocked") return "var(--danger)";
+  if (state === "completed" || state === "succeeded") return "#2e9e5b";
+  if (state === "running") return "var(--accent)";
+  if (
+    state === "copying" ||
+    state === "parsing" ||
+    state === "indexing" ||
+    state === "planned" ||
+    state === "preparing" ||
+    state === "verifying"
+  ) {
+    return "#b58900";
+  }
+  return "var(--text-dim)";
+}
 
 function StageBadge({ state }: { state: string }) {
   return (
@@ -187,6 +205,7 @@ export function ResearchPanel({
   if (!open) return null;
   const project = detail?.project ?? null;
   const reproduction = detail?.reproduction ?? null;
+  const events = detail?.recentEvents ?? [];
   const stages: WorkflowStage[] = mapWorkflowStages(project, reproduction);
   const status = project?.status ?? null;
   return (
@@ -341,9 +360,50 @@ export function ResearchPanel({
               )}
             </Section>
             <Section title="4 · 日志与产物" defaultOpen={false}>
+              {events.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 700, marginBottom: 4 }}>
+                    最近动态
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 150, overflowY: "auto" }}>
+                    {events.map((event, index) => (
+                      <div
+                        key={`${event.createdAt}-${index}`}
+                        style={{ display: "flex", gap: 6, alignItems: "baseline", fontSize: 11 }}
+                      >
+                        <span
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: 3,
+                            background: eventDotColor(event),
+                            flexShrink: 0,
+                            alignSelf: "center",
+                          }}
+                        />
+                        <span
+                          style={{
+                            color: "var(--text-dim)",
+                            fontFamily: "var(--font-mono)",
+                            flexShrink: 0,
+                            fontSize: 10,
+                          }}
+                        >
+                          {event.createdAt.slice(11, 19)}
+                        </span>
+                        <span style={{ color: "var(--text-muted)", wordBreak: "break-word", flex: 1 }}>
+                          {event.message}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {!reproduction && (
                 <div style={{ color: "var(--text-dim)", fontSize: 11 }}>
-                  尚无复现计划。让 Agent 调用 research_plan_reproduction 后此处更新。
+                  {events.length === 0
+                    ? "尚无活动记录。导入 PDF 或让 Agent 调用 research_plan_reproduction 后此处更新。"
+                    : "尚无复现计划。让 Agent 调用 research_plan_reproduction 后此处更新。"}
                 </div>
               )}
               {reproduction && (

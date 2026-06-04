@@ -114,6 +114,7 @@ import { credentialStateMatches, recoverCommittedCredential, type CredentialTarg
 import { FileSuggestionRequestError, fileSuggestionService } from "./file-suggestions";
 import { initializeManagedProcessService } from "./managed-process/runtime";
 import { ManagedProcessError } from "./managed-process/service";
+import { listResearchEvents } from "./research/event-log";
 import { getReproductionPlanById, getResearchProjectById, getResearchProjectService } from "./research/runtime";
 import type {
   ManagedProcessReadParams,
@@ -815,7 +816,7 @@ export function registerHandlers(server: RpcServer): () => Promise<void> {
                   artifactSha256: (step as { artifactSha256?: string | null }).artifactSha256 ?? null,
                 })),
               },
-        recentEvents: [],
+        recentEvents: listResearchEvents(projectId).map((event) => ({ ...event })),
       };
     },
     "host.ping": () => ({ ok: true as const, ts: Date.now() }),

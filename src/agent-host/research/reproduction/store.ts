@@ -14,6 +14,11 @@ interface PlanRow {
   payload_json: string;
 }
 
+export interface ReproductionStoreOptions {
+  /** Invoked after every put with the previous plan (undefined on insert). */
+  onPut?: (previous: ReproductionPlan | undefined, next: ReproductionPlan) => void;
+}
+
 /**
  * SQLite-backed store for reproduction plans, mirroring ResearchProjectStore.
  *
@@ -22,8 +27,10 @@ interface PlanRow {
  */
 export class ReproductionStore {
   readonly #database: DatabaseSyncType;
+  readonly #options: ReproductionStoreOptions;
 
-  constructor(databasePath: string) {
+  constructor(databasePath: string, options: ReproductionStoreOptions = {}) {
+    this.#options = options;
     mkdirSync(path.dirname(databasePath), { recursive: true });
     this.#database = new DatabaseSync(databasePath);
     this.#database.exec("PRAGMA journal_mode = WAL");
@@ -40,6 +47,7 @@ export class ReproductionStore {
     if (!UUID_V4_PATTERN.test(plan.projectId)) {
       throw new Error("Reproduction plan ID must be an RFC-4122 version-4 UUID");
     }
+    const previous = this.get(plan.projectId);
     this.#database
       .prepare(
         `
@@ -51,6 +59,7 @@ export class ReproductionStore {
       `,
       )
       .run(plan.projectId, JSON.stringify(plan), plan.updatedAt);
+    this.#options.onPut?.(previous, plan);
   }
 
   get(projectId: string): ReproductionPlan | undefined {

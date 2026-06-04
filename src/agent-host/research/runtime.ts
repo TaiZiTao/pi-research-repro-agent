@@ -8,6 +8,7 @@ import { ResearchProjectStore } from "./project-store.ts";
 import type { RunCommand } from "./reproduction/executor.ts";
 import { ReproductionStore } from "./reproduction/store.ts";
 import type { ReproductionPlan } from "./reproduction/types.ts";
+import { clearResearchEventLog, recordReproductionPlanPut, recordResearchEvent } from "./event-log.ts";
 import { resolveResearchRuntimePaths } from "./runtime-paths.ts";
 import { createResearchSessionTools } from "./session-tools.ts";
 
@@ -59,9 +60,20 @@ export function initializeResearchRuntime(options: InitializeResearchRuntimeOpti
       skillsSourceRoot: paths.skillsSourceRoot,
       runParser: options.runParser,
       now: options.now,
-      emit: options.emit,
+      emit: (progress) => {
+        recordResearchEvent(progress.projectId, {
+          type: "ingestion",
+          stage: progress.stage,
+          message: progress.message,
+          createdAt: (options.now ?? (() => new Date()))().toISOString(),
+        });
+        options.emit?.(progress);
+      },
     });
-    const reproStore = new ReproductionStore(paths.databasePath);
+    const reproStore = new ReproductionStore(paths.databasePath, {
+      onPut: (previous, next) =>
+        recordReproductionPlanPut(next.projectId, previous, next, (options.now ?? (() => new Date()))().toISOString()),
+    });
     const client = createResearchAcquisitionClient({
       transport: createInMemoryAcquisitionTransport(),
     });
@@ -118,6 +130,7 @@ export function closeResearchRuntime(): void {
   void client?.then((value) => value.close()).catch(() => undefined);
   reproStore?.close();
   store?.close();
+  clearResearchEventLog();
 }
 
 /**

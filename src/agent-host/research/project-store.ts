@@ -1,6 +1,11 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { createRequire } from "node:module";
+// Bundling keeps node:sqlite resolvable at runtime: esbuild would otherwise
+// strip the node: prefix and Node only resolves sqlite under node:sqlite.
+const nodeRequire = createRequire(import.meta.url);
+const { DatabaseSync } = nodeRequire("node:" + "sqlite") as typeof import("node:sqlite");
+import type { DatabaseSync as DatabaseSyncType } from "node:sqlite";
 import type { ResearchProject } from "../../shared/research/types.ts";
 
 interface ProjectRow {
@@ -8,7 +13,7 @@ interface ProjectRow {
 }
 
 export class ResearchProjectStore {
-  readonly #database: DatabaseSync;
+  readonly #database: DatabaseSyncType;
 
   constructor(databasePath: string) {
     mkdirSync(path.dirname(databasePath), { recursive: true });

@@ -1,6 +1,11 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
+import { createRequire } from "node:module";
+// Bundling keeps node:sqlite resolvable at runtime: esbuild would otherwise
+// strip the node: prefix and Node only resolves sqlite under node:sqlite.
+const nodeRequire = createRequire(import.meta.url);
+const { DatabaseSync } = nodeRequire("node:" + "sqlite") as typeof import("node:sqlite");
+import type { DatabaseSync as DatabaseSyncType } from "node:sqlite";
 import type { ReproductionPlan } from "./types.ts";
 
 const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -16,7 +21,7 @@ interface PlanRow {
  * allows several connections to the same database file concurrently.
  */
 export class ReproductionStore {
-  readonly #database: DatabaseSync;
+  readonly #database: DatabaseSyncType;
 
   constructor(databasePath: string) {
     mkdirSync(path.dirname(databasePath), { recursive: true });

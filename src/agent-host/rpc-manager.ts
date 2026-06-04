@@ -334,11 +334,14 @@ export class AgentSessionWrapper {
         if (event.type !== "message_end") return;
         const message = (event as { message?: unknown }).message as AssistantEventMessage | null;
         if (!message || message.role !== "assistant") return;
-        const toolCalls = Array.isArray((message as { tool_calls?: unknown }).tool_calls)
-          ? (message as { tool_calls: Array<{ function?: { name?: unknown } }> }).tool_calls
-              .map((call) => (typeof call.function?.name === "string" ? call.function.name : ""))
-              .filter(Boolean)
+        // Pi-style assistant content uses toolCall blocks (not OpenAI message.tool_calls).
+        const blocks = Array.isArray((message as { content?: unknown }).content)
+          ? (message as { content: Array<{ type?: unknown; name?: unknown }> }).content
           : [];
+        const toolCalls = blocks
+          .filter((block) => block?.type === "toolCall")
+          .map((block) => (typeof block.name === "string" ? block.name : ""))
+          .filter(Boolean);
         appendRouterLog(routerLogPath, {
           ts: new Date().toISOString(),
           sessionHash: sha256Short(this.sessionId),

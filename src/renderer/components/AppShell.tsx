@@ -16,6 +16,7 @@ import { FileViewer } from "./FileViewer";
 import { TabBar } from "./TabBar";
 import { SettingsConfig, type SettingsTab } from "./SettingsConfig";
 import { ResearchPanel } from "./research/ResearchPanel";
+import type { EvidenceRow } from "./research/mapping";
 import { QuickChannelBinding } from "./channels/QuickChannelBinding";
 import { BrowserDock } from "./browser/BrowserDock";
 import { BrowserAuthorizationDialog } from "./browser/BrowserAuthorizationDialog";
@@ -108,6 +109,8 @@ export function AppShell({
   const [explorerRefreshKey, setExplorerRefreshKey] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [researchOpen, setResearchOpen] = useState(false);
+  const [researchEvidence, setResearchEvidence] = useState<EvidenceRow[]>([]);
+  const [finalizeStatus, setFinalizeStatus] = useState<{ accepted: boolean; errors: string } | null>(null);
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>("general");
   const [settingsNavigationRequestId, setSettingsNavigationRequestId] = useState(0);
   const [authorizationSettingsSessionId, setAuthorizationSettingsSessionId] = useState<string | null>(null);
@@ -502,6 +505,26 @@ export function AppShell({
       offSwitch?.();
     };
   }, [activeCwd, router]);
+  useEffect(() => {
+    const onEvidence = (event: Event) => {
+      const detail = (event as CustomEvent<EvidenceRow[]>).detail;
+      if (Array.isArray(detail))
+        setResearchEvidence((prev) => {
+          const next = [...prev, ...detail];
+          return next.slice(-60);
+        });
+    };
+    const onFinalize = (event: Event) => {
+      const detail = (event as CustomEvent<{ accepted: boolean; errors: string }>).detail;
+      if (detail && typeof detail.accepted === "boolean") setFinalizeStatus(detail);
+    };
+    window.addEventListener("pi:evidence", onEvidence);
+    window.addEventListener("pi:finalize", onFinalize);
+    return () => {
+      window.removeEventListener("pi:evidence", onEvidence);
+      window.removeEventListener("pi:finalize", onFinalize);
+    };
+  }, []);
 
   const handleCwdChange = useCallback(
     (cwd: string | null, projectRoot?: string | null) => {
@@ -1890,6 +1913,8 @@ export function AppShell({
         sessionCwd={selectedSession?.cwd ?? newSessionCwd ?? null}
         onClose={() => setResearchOpen(false)}
         onOpenInSession={(workspacePath) => handleCwdChange(workspacePath)}
+        researchEvidence={researchEvidence}
+        finalizeStatus={finalizeStatus}
       />
 
       {settingsOpen && (

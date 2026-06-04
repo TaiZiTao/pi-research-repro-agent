@@ -2047,6 +2047,9 @@ function CandidateCardView(props: {
 
 function EvidenceHits({ resultText }: { resultText: string }) {
   const rows = mapEvidenceFromResult(resultText);
+  useEffect(() => {
+    if (rows.length > 0) window.dispatchEvent(new CustomEvent("pi:evidence", { detail: rows }));
+  }, [rows]);
   if (rows.length === 0) return null;
   return (
     <div
@@ -2077,13 +2080,18 @@ function EvidenceHits({ resultText }: { resultText: string }) {
 function FinalizeBadge({ resultText }: { resultText: string }) {
   let accepted = false;
   let detail = "";
+  let parsedOk = true;
   try {
     const parsed = JSON.parse(resultText) as { accepted?: unknown; errors?: unknown };
     accepted = parsed.accepted === true;
     detail = Array.isArray(parsed.errors) ? parsed.errors.join("; ") : "";
   } catch {
-    return null;
+    parsedOk = false;
   }
+  useEffect(() => {
+    if (parsedOk) window.dispatchEvent(new CustomEvent("pi:finalize", { detail: { accepted, errors: detail } }));
+  }, [parsedOk, accepted, detail]);
+  if (!parsedOk) return null;
   return (
     <div style={{ padding: "4px 12px", borderTop: "1px solid var(--tool-border)", fontSize: 11 }}>
       <span style={{ color: accepted ? "#2e9e5b" : "var(--danger)", fontWeight: 700 }}>

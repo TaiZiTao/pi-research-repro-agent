@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { call } from "@/lib/api-client";
-import { mapWorkflowStages, type WorkflowStage } from "./mapping.ts";
+import { mapWorkflowStages, type EvidenceRow, type WorkflowStage } from "./mapping.ts";
 
 interface ProjectRow {
   projectId: string;
@@ -40,6 +40,8 @@ interface ResearchPanelProps {
   sessionCwd: string | null;
   onClose: () => void;
   onOpenInSession?: (workspacePath: string) => void;
+  researchEvidence?: EvidenceRow[];
+  finalizeStatus?: { accepted: boolean; errors: string } | null;
 }
 
 const stageColor: Record<string, string> = {
@@ -105,7 +107,14 @@ function Section({
   );
 }
 
-export function ResearchPanel({ open, sessionCwd, onClose, onOpenInSession }: ResearchPanelProps) {
+export function ResearchPanel({
+  open,
+  sessionCwd,
+  onClose,
+  onOpenInSession,
+  researchEvidence,
+  finalizeStatus,
+}: ResearchPanelProps) {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ProjectDetail | null>(null);
@@ -299,11 +308,37 @@ export function ResearchPanel({ open, sessionCwd, onClose, onOpenInSession }: Re
                 ))}
               </div>
             </Section>
-            <Section title="3 · 引用与证据" defaultOpen={false}>
-              <div style={{ color: "var(--text-dim)", fontSize: 11, lineHeight: 1.5 }}>
-                对话中执行 research_search_evidence / research_finalize_answer
-                后,此处会显示页码、chunk_id、分数与原文(集成中;当前显示空态)。
-              </div>
+            <Section title="3 · 引用与证据">
+              {(researchEvidence ?? []).length === 0 && !finalizeStatus && (
+                <div style={{ color: "var(--text-dim)", fontSize: 11, lineHeight: 1.5 }}>
+                  在对话中执行 research_search_evidence / research_finalize_answer 后,此处实时显示证据。
+                </div>
+              )}
+              {(researchEvidence ?? []).length > 0 && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 5, maxHeight: 180, overflowY: "auto" }}>
+                  {(researchEvidence ?? []).map((row) => (
+                    <div key={row.chunkId} style={{ borderBottom: "1px solid var(--border)", paddingBottom: 4 }}>
+                      <div style={{ fontWeight: 700 }}>
+                        p.{row.page} · {row.chunkId}{" "}
+                        <span style={{ color: "var(--text-dim)", fontWeight: 400 }}>score {row.score.toFixed(3)}</span>
+                      </div>
+                      <div style={{ color: "var(--text-muted)", fontSize: 11, wordBreak: "break-word" }}>
+                        {row.text.slice(0, 200)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {finalizeStatus && (
+                <div style={{ marginTop: 6, fontSize: 11 }}>
+                  <span style={{ color: finalizeStatus.accepted ? "#2e9e5b" : "var(--danger)", fontWeight: 700 }}>
+                    {finalizeStatus.accepted ? "引用校验通过" : "引用校验失败"}
+                  </span>
+                  {finalizeStatus.errors && (
+                    <span style={{ color: "var(--text-dim)", marginLeft: 6 }}>{finalizeStatus.errors}</span>
+                  )}
+                </div>
+              )}
             </Section>
             <Section title="4 · 日志与产物" defaultOpen={false}>
               {!reproduction && (

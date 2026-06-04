@@ -446,6 +446,7 @@ export interface Api {
       starting: boolean;
       models: string[];
       error: string | null;
+      routingMode: "off" | "router" | "agent";
     };
   };
   "research.qwen.start": {
@@ -455,6 +456,10 @@ export interface Api {
   "research.qwen.stop": {
     params: void;
     result: { stopped: boolean; error?: string };
+  };
+  "research.qwen.routing.set": {
+    params: { mode: "off" | "router" | "agent" };
+    result: { mode: "off" | "router" | "agent" };
   };
   "research.papers.search": {
     params: { query: string; limit?: number };

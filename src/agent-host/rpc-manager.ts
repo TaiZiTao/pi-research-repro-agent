@@ -39,19 +39,15 @@ import {
   getResearchAcquisitionClient,
   getResearchProjectService,
 } from "./research/runtime";
-import {
-  EMPTY_RESULT_HINT,
-  agentEnabledFromEnv,
-  buildAgentPrompt,
-  runQwenAgentChain,
-  withEmptyResultHint,
-} from "./research/qwen-agent";
+import { EMPTY_RESULT_HINT, buildAgentPrompt, runQwenAgentChain, withEmptyResultHint } from "./research/qwen-agent";
+import { createQwenHttpPredictor, type QwenRouterPredictor } from "./research/qwen-http";
+import { getQwenRoutingMode } from "./research/qwen-routing-state";
 import { RESEARCH_QWEN_PROVIDER } from "./research/qwen-tools";
 import {
+  activeResearchToolSchemas,
   appendRouterLog,
   hasResearchTool,
   qwenRouterSuggestion,
-  routerEnabledFromEnv,
   routerSteerPrefix,
 } from "./research/qwen-router";
 import {
@@ -86,13 +82,11 @@ function getQwenShadowPredictor(): ShadowPredictor | null {
   return qwenShadowPredictor;
 }
 
-let qwenRouterPredictor: ShadowPredictor | null = null;
+let qwenRouterPredictor: QwenRouterPredictor | null = null;
 
-function getQwenRouterPredictor(): ShadowPredictor | null {
-  if (!routerEnabledFromEnv() && !agentEnabledFromEnv()) return null;
-  const base = resolveQwenShadowConfig();
-  if (!base.adapter) return null;
-  if (!qwenRouterPredictor) qwenRouterPredictor = createQwenShadow({ ...base, mode: "shadow" as const });
+function getQwenRouterPredictor(): QwenRouterPredictor | null {
+  if (getQwenRoutingMode() === "off") return null;
+  if (!qwenRouterPredictor) qwenRouterPredictor = createQwenHttpPredictor();
   return qwenRouterPredictor;
 }
 
@@ -339,7 +333,7 @@ export class AgentSessionWrapper {
   }
 
   start(): void {
-    const routerLogPath = routerEnabledFromEnv() ? (process.env.RESEARCH_QWEN_ROUTER_LOG ?? "") : "";
+    const routerLogPath = getQwenRoutingMode() === "off" ? "" : (process.env.RESEARCH_QWEN_ROUTER_LOG ?? "");
     if (routerLogPath) {
       this.inner.subscribe((event: AgentEvent) => {
         if (event.type !== "message_end") return;
@@ -529,13 +523,15 @@ export class AgentSessionWrapper {
     if (!predictor) return text;
     const active = this.inner.getActiveToolNames();
     if (!hasResearchTool(active)) return text;
+    const toolSchemas = activeResearchToolSchemas(this.inner.getAllTools(), active);
+    if (toolSchemas.length === 0) return text;
     const stateMessages = (this.inner.agent as { state?: { messages?: readonly StateMessageLike[] | null } } | null)
       ?.state?.messages;
     const context = [...buildShadowContext(stateMessages ?? [], 3), { role: "user" as const, content: text }];
-    if (agentEnabledFromEnv()) {
+    if (getQwenRoutingMode() === "agent") {
       const result = await runQwenAgentChain({
         decider: async (ctx) => {
-          const suggestion = await qwenRouterSuggestion(predictor, ctx, active);
+          const suggestion = await qwenRouterSuggestion(predictor, ctx, active, toolSchemas);
           return suggestion ? { action: suggestion.name, arguments: suggestion.arguments } : null;
         },
         executor: (action, args) => this.executeResearchToolForAgent(action, args),
@@ -557,7 +553,7 @@ export class AgentSessionWrapper {
       if (result.answeredImmediately) return text;
       return buildAgentPrompt(text, result);
     }
-    const suggestion = await qwenRouterSuggestion(predictor, context, active).catch(() => null);
+    const suggestion = await qwenRouterSuggestion(predictor, context, active, toolSchemas).catch(() => null);
     appendRouterLog(process.env.RESEARCH_QWEN_ROUTER_LOG ?? "", {
       ts: new Date().toISOString(),
       sessionHash: sha256Short(this.sessionId),
@@ -574,6 +570,27 @@ export class AgentSessionWrapper {
    * Real services only; failures return { ok:false } so the chain stops.
    */
   private async executeResearchToolForAgent(
+    action: string,
+    args: Record<string, unknown>,
+  ): Promise<{ ok: boolean; summary: string }> {
+    const toolCallId = `qwen_${randomUUID()}`;
+    this.emit({ type: "tool_execution_start", toolCallId, toolName: action, args, routedBy: "qwen" });
+    const outcome = await this.performResearchToolForAgent(action, args);
+    this.emit({
+      type: "tool_execution_end",
+      toolCallId,
+      toolName: action,
+      result: {
+        content: [{ type: "text", text: outcome.summary }],
+        details: { routedBy: "qwen", ok: outcome.ok },
+      },
+      isError: !outcome.ok,
+      routedBy: "qwen",
+    });
+    return outcome;
+  }
+
+  private async performResearchToolForAgent(
     action: string,
     args: Record<string, unknown>,
   ): Promise<{ ok: boolean; summary: string }> {

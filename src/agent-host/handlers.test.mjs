@@ -45,7 +45,7 @@ async function captureHandlers() {
 test("registerHandlers exposes every contract method exactly once", async () => {
   const { handlers } = await captureHandlers();
   // Keep in sync with src/contract/api.ts: one handler per contract method.
-  assert.equal(Object.keys(handlers).length, 89);
+  assert.equal(Object.keys(handlers).length, 90);
   for (const method of [
     "host.ping",
     "host.toolchain",
@@ -80,11 +80,19 @@ test("registerHandlers exposes every contract method exactly once", async () => 
     "research.qwen.status",
     "research.qwen.start",
     "research.qwen.stop",
+    "research.qwen.routing.set",
     "research.papers.search",
     "research.papers.import",
   ]) {
     assert.equal(typeof handlers[method], "function", `${method} must be registered`);
   }
+});
+
+test("research Qwen routing mode can be changed through RPC", async () => {
+  const { handlers } = await captureHandlers();
+  assert.deepEqual(await handlers["research.qwen.routing.set"]({ mode: "agent" }), { mode: "agent" });
+  assert.deepEqual(await handlers["research.qwen.routing.set"]({ mode: "off" }), { mode: "off" });
+  await assert.rejects(() => handlers["research.qwen.routing.set"]({ mode: "invalid" }), /Invalid Qwen routing mode/);
 });
 
 test("agent.new uses a unique temporary lock key for every request", async () => {
@@ -214,16 +222,18 @@ test("model list projection isolates provider availability failures and keeps th
   const { projectModelsList } = await loadHandlersModule();
   const goodModel = { id: "fresh", name: "Fresh model", provider: "good", reasoning: false };
   const cachedModel = { id: "cached", name: "Cached model", provider: "broken", reasoning: false };
+  const qwenRouterModel = { id: "qwen3-0.6b", name: "Qwen router", provider: "research-qwen", reasoning: false };
   const result = await projectModelsList(
     {
       getProviders() {
-        return [{ id: "good" }, { id: "broken" }];
+        return [{ id: "good" }, { id: "broken" }, { id: "research-qwen" }];
       },
       getAvailableSnapshot() {
         return [cachedModel];
       },
       async getAvailable(providerId) {
         if (providerId === "good") return [goodModel];
+        if (providerId === "research-qwen") return [qwenRouterModel];
         throw new Error("secret provider failure detail");
       },
     },

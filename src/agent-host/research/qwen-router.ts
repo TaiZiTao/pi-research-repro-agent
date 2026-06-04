@@ -14,12 +14,36 @@
 
 import { appendFileSync, mkdirSync } from "node:fs";
 import path from "node:path";
+import type { QwenRouterPredictor, QwenToolSchema } from "./qwen-http.ts";
 import { isResearchToolName } from "./qwen-tools.ts";
-import type { ShadowPredictor } from "./qwen-shadow.ts";
 
 export interface RouterSuggestion {
   name: string;
   arguments: Record<string, unknown>;
+}
+
+interface ToolSchemaSource {
+  name: string;
+  description: string;
+  parameters?: unknown;
+}
+
+/** Build the exact OpenAI tool catalog visible to the current Pi turn. */
+export function activeResearchToolSchemas(
+  allTools: readonly ToolSchemaSource[],
+  activeToolNames: readonly string[],
+): QwenToolSchema[] {
+  const active = new Set(activeToolNames);
+  return allTools
+    .filter((tool) => active.has(tool.name) && isResearchToolName(tool.name))
+    .map((tool) => ({
+      type: "function" as const,
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters ?? { type: "object", properties: {}, additionalProperties: false },
+      },
+    }));
 }
 
 /** Env switch; default off so ordinary DeepSeek sessions are untouched. */
@@ -33,12 +57,13 @@ export function routerEnabledFromEnv(env: NodeJS.ProcessEnv = process.env): bool
  * failed, or suggested something outside the active set.
  */
 export async function qwenRouterSuggestion(
-  predictor: ShadowPredictor,
+  predictor: QwenRouterPredictor,
   context: Array<{ role: string; content: string }>,
   activeToolNames: readonly string[],
+  tools: readonly QwenToolSchema[] = [],
 ): Promise<RouterSuggestion | null> {
   if (activeToolNames.length === 0) return null;
-  const prediction = await predictor.predict(context);
+  const prediction = await predictor.predict(context, tools);
   if (!prediction) return null;
   const { action } = prediction;
   if (action === "__answer__" || action === "__invalid__") return null;

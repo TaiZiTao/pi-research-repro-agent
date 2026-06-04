@@ -134,6 +134,7 @@ interface QwenStatusRow {
   starting: boolean;
   models: string[];
   error: string | null;
+  routingMode: "off" | "router" | "agent";
 }
 
 function QwenServeSection() {
@@ -161,9 +162,10 @@ function QwenServeSection() {
     try {
       const result = await call("research.qwen.start");
       const started = result as { ok?: boolean; error?: string };
+      if (started.ok) await call("research.qwen.routing.set", { mode: "agent" });
       setNotice(
         started.ok
-          ? "Server starting — model loads once, then /v1/models answers (first reply can take a while)."
+          ? "Qwen 服务正在启动，多轮工具路由已启用（首次加载可能需要一些时间）。"
           : "Start failed: " + (started.error ?? "unknown error"),
       );
       await refresh();
@@ -178,6 +180,7 @@ function QwenServeSection() {
     setBusy(true);
     setNotice(null);
     try {
+      await call("research.qwen.routing.set", { mode: "off" });
       const result = await call("research.qwen.stop");
       const stopped = result as { stopped?: boolean; error?: string };
       setNotice(
@@ -190,6 +193,26 @@ function QwenServeSection() {
       setBusy(false);
     }
   }, [refresh]);
+
+  const handleRoutingMode = useCallback(async (mode: "off" | "router" | "agent") => {
+    setBusy(true);
+    setNotice(null);
+    try {
+      await call("research.qwen.routing.set", { mode });
+      setStatus((current) => (current ? { ...current, routingMode: mode } : current));
+      setNotice(
+        mode === "off"
+          ? "Qwen 工具路由已关闭，消息直接交给 DeepSeek。"
+          : mode === "router"
+            ? "已启用单次工具建议模式。"
+            : "已启用多轮只读工具链，最终答案仍由 DeepSeek 生成。",
+      );
+    } catch (error) {
+      setNotice("Routing mode failed: " + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setBusy(false);
+    }
+  }, []);
 
   const stateText =
     status === null
@@ -206,9 +229,8 @@ function QwenServeSection() {
       <strong style={{ display: "block", marginBottom: 6 }}>Qwen 本地科研模型(工具路由器)</strong>
       <div style={{ fontSize: 12, color: "#777", lineHeight: 1.6, marginBottom: 8 }}>
         Qwen3-0.6B LoRA 是<strong>本地工具路由器(决策器)</strong>,不是主对话模型。主会话始终用
-        DeepSeek(对话/规划/终答);当 env RESEARCH_QWEN_ROUTER=1 时,每次用户消息前由 Qwen 在后台
-        建议“是否调用工具/哪个/参数”,并与会话<strong>活动工具集</strong>校验后再交给 DeepSeek 执行—— Qwen
-        不会被加进主模型下拉,也就不会出现“工具不存在→无限重试”。此处提供本地服务的启停与状态 (用于直连演示/评测)。
+        DeepSeek(对话/规划/终答);启用后，每次用户消息先由 Qwen 在后台判断“是否调用工具/哪个/参数”，并与会话
+        <strong>真实活动工具集</strong>校验。Qwen 不会出现在主模型下拉框中。
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <span style={{ fontSize: 13, fontWeight: 600, color: stateColor }}>{stateText}</span>
@@ -218,7 +240,7 @@ function QwenServeSection() {
           onClick={() => void handleStart()}
           style={{ padding: "3px 10px", cursor: "pointer", fontSize: 12 }}
         >
-          启动服务
+          启动并启用
         </button>
         <button
           type="button"
@@ -236,6 +258,17 @@ function QwenServeSection() {
         >
           刷新状态
         </button>
+        <select
+          value={status?.routingMode ?? "off"}
+          disabled={busy || !status?.running}
+          onChange={(event) => void handleRoutingMode(event.target.value as "off" | "router" | "agent")}
+          style={{ padding: "3px 8px", fontSize: 12 }}
+          aria-label="Qwen 工具路由模式"
+        >
+          <option value="off">关闭路由</option>
+          <option value="router">单次建议</option>
+          <option value="agent">多轮只读工具链</option>
+        </select>
       </div>
       {notice && <div style={{ margin: "6px 0", color: "#555", fontSize: 12 }}>{notice}</div>}
     </div>

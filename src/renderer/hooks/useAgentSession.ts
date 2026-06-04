@@ -37,6 +37,7 @@ import {
   shouldStopChatAutoFollow,
 } from "./chat-scroll-policy";
 import { requestAutoSessionTitle, shouldAutoTitleMessage } from "../lib/auto-session-title";
+import { mapEvidenceFromResult } from "../components/research/mapping";
 
 // Module-level scroll magnet: survives ChatWindow remounts (each session switch
 // uses key={sessionKey} in AppShell, which would otherwise wipe every useRef).
@@ -1154,6 +1155,15 @@ export function useAgentSession(opts: UseAgentSessionOptions) {
         }
         case "tool_execution_end": {
           const id = event.toolCallId as string;
+          if (event.toolName === "research_search_evidence" && event.isError !== true) {
+            const result = event.result as { content?: Array<{ type?: unknown; text?: unknown }> } | undefined;
+            const text = result?.content
+              ?.filter((block) => block?.type === "text" && typeof block.text === "string")
+              .map((block) => String(block.text))
+              .join("\n");
+            const rows = mapEvidenceFromResult(text ?? "");
+            if (rows.length > 0) window.dispatchEvent(new CustomEvent("pi:evidence", { detail: rows }));
+          }
           setAgentPhase((prev) => {
             if (prev?.kind !== "running_tools") return prev;
             const tools = prev.tools.filter((t) => t.id !== id);

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import path from "node:path";
 import { qwenServerChildAlive, resetQwenServerForTests, resolveQwenServeConfig } from "./qwen-server.ts";
 
 test.afterEach(() => resetQwenServerForTests());
@@ -17,11 +18,12 @@ test("resolveQwenServeConfig uses env overrides with machine defaults", () => {
   assert.equal(config.serverPath, "C:\\app\\python\\agent_shadow\\qwen_openai_server.py");
 });
 
-test("resolveQwenServeConfig falls back to defaults without env", () => {
-  const config = resolveQwenServeConfig({});
+test("resolveQwenServeConfig automatically selects the bundled trained adapter", () => {
+  const appRoot = path.resolve(import.meta.dirname, "..", "..", "..");
+  const config = resolveQwenServeConfig({ PI_DESKTOP_APP_ROOT: appRoot });
   assert.ok(config.python.length > 0);
   assert.ok(config.model.length > 0);
-  assert.equal(config.adapter, null);
+  assert.equal(config.adapter, path.join(appRoot, "training", "outputs", "qwen3-0.6b-lora-answer-1.5", "adapter"));
   assert.match(config.serverPath, /python[\\/]agent_shadow[\\/]qwen_openai_server\.py$/);
 });
 

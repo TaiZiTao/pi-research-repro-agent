@@ -116,6 +116,8 @@ import { initializeManagedProcessService } from "./managed-process/runtime";
 import { ManagedProcessError } from "./managed-process/service";
 import { listResearchEvents } from "./research/event-log";
 import { probeQwenServer, startQwenServer, stopQwenServer } from "./research/qwen-server";
+import { getQwenRoutingMode, setQwenRoutingMode } from "./research/qwen-routing-state";
+import { RESEARCH_QWEN_PROVIDER } from "./research/qwen-tools";
 import {
   getReproductionPlanById,
   getResearchAcquisitionClient,
@@ -659,7 +661,8 @@ export async function projectModelsList(
   const availability = options.cachedOnly
     ? { models: [...modelRuntime.getAvailableSnapshot()], warnings: [] }
     : await resolveAvailableModels(modelRuntime, options.signal);
-  const available = availability.models;
+  // The local Qwen model is a background tool router, never a conversation model.
+  const available = availability.models.filter((model) => model.provider !== RESEARCH_QWEN_PROVIDER);
   const enabledModels = settings.getEnabledModels();
   const visible = filterByExactEnabledModels(available, enabledModels);
   const models = visible
@@ -830,9 +833,16 @@ export function registerHandlers(server: RpcServer): () => Promise<void> {
         recentEvents: listResearchEvents(projectId).map((event) => ({ ...event })),
       };
     },
-    "research.qwen.status": async () => probeQwenServer(),
-    "research.qwen.start": () => startQwenServer(),
+    "research.qwen.status": async () => ({ ...(await probeQwenServer()), routingMode: getQwenRoutingMode() }),
+    "research.qwen.start": async () => {
+      const status = await probeQwenServer();
+      return status.running ? { ok: true } : startQwenServer();
+    },
     "research.qwen.stop": () => stopQwenServer(),
+    "research.qwen.routing.set": async (params) => {
+      const input = params as { mode?: unknown } | undefined;
+      return { mode: setQwenRoutingMode(input?.mode) };
+    },
     "research.papers.search": async (params) => {
       const input = params as { query?: unknown; limit?: unknown } | undefined;
       const query = typeof input?.query === "string" ? input.query.trim() : "";

@@ -36,10 +36,11 @@ search "main contribution architecture lightweight super-resolution" --limit 3
 - 引用校验:@作者名/页码 出现错引时会触发 research_finalize_answer 校验徽标(通过/失败)。
 - 复现:「按论文规划复现(官方仓库不可用时用 Agent 最小复现)。」
 
-## 4. 模型选择说明
+## 4. 模型与路由说明
 
-- 通用问答/代码:DeepSeek(`deepseek-v4-flash`,默认已配)。
-- Qwen(科研专用):Settings → Research → Qwen 本地科研模型 →「启动服务」+「写入模型配置」→ 新会话下拉选 `research-qwen / qwen3-0.6b`;该会话**仅 research\_* 工具**(安全门禁)。
+- 主会话始终选择 DeepSeek(`deepseek-v4-flash`)，负责对话、规划和最终回答。
+- Settings → Research → Qwen 本地科研模型 →「启动并启用」，会启动唯一的本地 8123 推理服务并开启“多轮只读工具链”。也可切换为“单次建议”或关闭路由。
+- Qwen3-0.6B LoRA 不出现在主模型下拉框中；它只在后台根据当前会话真实启用的 `research_*` 工具 Schema 选择下一步。工具建议不合法、服务不可用或达到 4 步上限时，流程安全降级给 DeepSeek。
 
 ## 5. 诚实边界
 

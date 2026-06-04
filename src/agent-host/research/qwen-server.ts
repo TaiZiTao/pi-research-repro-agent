@@ -40,8 +40,13 @@ export function resolveQwenServeConfig(env: NodeJS.ProcessEnv = process.env): Qw
     env.RESEARCH_QWEN_PYTHON && env.RESEARCH_QWEN_PYTHON.trim().length > 0 ? env.RESEARCH_QWEN_PYTHON : DEFAULT_PYTHON;
   const model =
     env.RESEARCH_QWEN_MODEL && env.RESEARCH_QWEN_MODEL.trim().length > 0 ? env.RESEARCH_QWEN_MODEL : DEFAULT_MODEL;
+  const bundledAdapter = path.join(appRoot, "training", "outputs", "qwen3-0.6b-lora-answer-1.5", "adapter");
   const adapter =
-    env.RESEARCH_QWEN_ADAPTER && env.RESEARCH_QWEN_ADAPTER.trim().length > 0 ? env.RESEARCH_QWEN_ADAPTER : null;
+    env.RESEARCH_QWEN_ADAPTER && env.RESEARCH_QWEN_ADAPTER.trim().length > 0
+      ? env.RESEARCH_QWEN_ADAPTER
+      : existsSync(path.join(bundledAdapter, "adapter_config.json"))
+        ? bundledAdapter
+        : null;
   return {
     python,
     serverPath: path.join(appRoot, "python", "agent_shadow", "qwen_openai_server.py"),

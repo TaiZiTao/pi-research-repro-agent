@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { hasResearchTool, qwenRouterSuggestion, routerEnabledFromEnv, routerSteerPrefix } from "./qwen-router.ts";
+import {
+  activeResearchToolSchemas,
+  hasResearchTool,
+  qwenRouterSuggestion,
+  routerEnabledFromEnv,
+  routerSteerPrefix,
+} from "./qwen-router.ts";
 
 function fakePredictor(result) {
   return {
@@ -61,4 +67,24 @@ test("steer prefix names the tool and keeps the user question", () => {
   assert.match(prefix, /main contribution/);
   assert.match(prefix, /这篇论文的主要贡献是什么/);
   assert.match(prefix, /真实工具结果/);
+});
+
+test("active tool schemas contain only currently active research tools", () => {
+  const schemas = activeResearchToolSchemas(
+    [
+      { name: "bash", description: "shell", parameters: { type: "object" } },
+      {
+        name: "research_search_evidence",
+        description: "evidence",
+        parameters: { type: "object", properties: { query: { type: "string" } } },
+      },
+      { name: "research_finalize_answer", description: "finalize", parameters: { type: "object" } },
+    ],
+    ["bash", "research_search_evidence"],
+  );
+  assert.deepEqual(
+    schemas.map((schema) => schema.function.name),
+    ["research_search_evidence"],
+  );
+  assert.deepEqual(schemas[0].function.parameters.properties.query, { type: "string" });
 });

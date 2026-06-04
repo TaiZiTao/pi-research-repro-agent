@@ -41,7 +41,7 @@ answer 1.5× 上采样与 eval split 隔离、fp16 验证等由后续 commit 记
 
 - off/shadow 两态(env RESEARCH_QWEN_MODE,默认 off 不加载);每轮 assistant 回复后异步旁路预测,DeepSeek 唯一决策者,Qwen 异常静默回退;JSONL 对比记录(会话匿名哈希、参数脱敏、不落论文全文)。
 - 验证:TS 单测 7/7;真机冒烟 answer-1.5 加载 ~6.5s、单条预测 ~1.8s、返回 research_search_papers{query,limit:3}。
-- 正式接入:python/agent_shadow/qwen_openai_server.py 提供 OpenAI 兼容 /v1/chat/completions(Base/QLoRA 可切),把 <tool_call> 转成 OpenAI tool_calls 供 Pi 真实执行;冒烟验证返回 research_search_papers{query,limit:3}(~2.1s)。Pi 侧配置见 docs/agent-integration.md;端到端桌面会话验证待真机。
+- 正式接入:python/agent_shadow/qwen_openai_server.py 提供 OpenAI 兼容 /v1/chat/completions(Base/QLoRA 可切),把 <tool_call> 转成 OpenAI tool_calls;Qwen 作为后台路由器参与决策，DeepSeek 始终是主会话模型。
 
 ## 4. 复现命令
 
@@ -86,7 +86,7 @@ python training/tests/test_dataset_pipeline.py && python training/tests/test_pre
 
 - 定位修正:Qwen3-0.6B LoRA 是**本地工具决策器**,不是主会话模型;主模型始终 DeepSeek(对话/理解/复现规划/复杂参数/终答)。曾错误地允许 research-qwen 作为主模型被选中(会话被 Qwen 接管 → 决策器提示引导连发工具、活动工具为空/服务端补静态目录 → Tool not found 无限重试)。
 - 修复(本轮):research-qwen 移出主 models.json 与模型下拉;AgentSessionWrapper.set_model 对 research-qwen 抛错拒绝;设置页移除「写入模型配置」;服务端**显式 tools 列表原样使用、空列表不补静态 10 工具**(仅缺省时才用 eval 目录兜底供直连演示)。
-- 路由模式(env RESEARCH_QWEN_ROUTER=1 + RESEARCH_QWEN_ADAPTER,默认关闭):每次普通用户消息前,qwen-router(复用 qwen-shadow worker)用最近会话+新消息预测下一步——**answer**/无效/建议不在活动工具集/非 research_* 一律不加指令;通过校验的建议转成 steer 前缀交给 DeepSeek 执行真实工具并据实作答。消息入口只建议一次,杜绝 not-found 死循环;建议落空即原样放行。
+- 路由模式可在 Settings → Research 直接切换关闭/单次建议/多轮只读工具链;每次普通用户消息前，路由器通过桌面管理的同一个 8123 服务预测下一步，并传入当前会话真实活动工具 Schema。**answer**/无效/非活动工具建议一律原样放行给 DeepSeek。
 - 执行与安全:工具执行、finalize/configure/execute/download 等复杂参数与状态变更全部由 DeepSeek 经宿主安全门禁完成;Qwen 只参与"要不要/哪个/简单参数"的决策,不执行。
 - 服务:8123 OpenAI 兼容 + SSE(内容块 + finish_reason + [DONE]),/v1/models 探测;设置页 Research 提供启停与状态(不再写主模型目录)。
 - 测试:qwen-router 4/4(建议过滤/活动集校验/steer 前缀)、qwen-tools 3/3;双 tsc/eslint 通过。

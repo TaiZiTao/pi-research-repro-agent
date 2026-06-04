@@ -71,10 +71,12 @@ export function hasResearchTool(activeToolNames: readonly string[]): boolean {
 export interface RouterLogRecord {
   ts: string;
   sessionHash: string;
-  kind: "router_suggestion" | "deepseek_tool_calls";
+  kind: "router_suggestion" | "deepseek_tool_calls" | "agent_chain";
   suggestion?: { name: string; arguments: Record<string, unknown> } | null;
   tools?: string[];
   userPreview?: string;
+  steps?: Array<{ action: string; arguments: Record<string, unknown>; ok: boolean; summaryPreview: string }>;
+  pendingAction?: { name: string; arguments: Record<string, unknown> } | null;
 }
 
 /** Best-effort JSONL record; never throws into the prompt path. */

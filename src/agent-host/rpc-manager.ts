@@ -34,7 +34,12 @@ import { getDesktopSessionToolNames, setDesktopSessionToolNames } from "./sessio
 import { peekManagedProcessService } from "./managed-process/runtime";
 import { createManagedProcessToolDefinitions } from "./managed-process/tools";
 import { installManagedProcessSessionRedaction } from "./managed-process/session-redaction";
-import { createResearchRuntimeTools } from "./research/runtime";
+import {
+  createResearchRuntimeTools,
+  getResearchAcquisitionClient,
+  getResearchProjectService,
+} from "./research/runtime";
+import { agentEnabledFromEnv, buildAgentPrompt, runQwenAgentChain } from "./research/qwen-agent";
 import { RESEARCH_QWEN_PROVIDER } from "./research/qwen-tools";
 import {
   appendRouterLog,
@@ -78,7 +83,7 @@ function getQwenShadowPredictor(): ShadowPredictor | null {
 let qwenRouterPredictor: ShadowPredictor | null = null;
 
 function getQwenRouterPredictor(): ShadowPredictor | null {
-  if (!routerEnabledFromEnv()) return null;
+  if (!routerEnabledFromEnv() && !agentEnabledFromEnv()) return null;
   const base = resolveQwenShadowConfig();
   if (!base.adapter) return null;
   if (!qwenRouterPredictor) qwenRouterPredictor = createQwenShadow({ ...base, mode: "shadow" as const });
@@ -505,11 +510,13 @@ export class AgentSessionWrapper {
   }
 
   /**
-   * Router prelude: consult the local Qwen decisioner before a plain user
-   * prompt. Only fires when RESEARCH_QWEN_ROUTER=1, an adapter is configured,
-   * and the session has research tools active. Any suggestion is validated
-   * against the ACTIVE tool set; otherwise the message passes through
-   * unchanged and DeepSeek answers as usual. Errors degrade silently.
+   * Local Qwen participation before a plain user prompt.
+   *   RESEARCH_QWEN_AGENT=1  → autonomous chain: Qwen decides up to N read-only
+   *     research tools, the host executes them for real, results feed back;
+   *     DeepSeek gets the trace (+ any pending state-changing action) and answers.
+   *   RESEARCH_QWEN_ROUTER=1 → single suggestion steer for DeepSeek.
+   * Everything is validated against the ACTIVE tool set; every failure
+   * degrades silently to an unchanged message.
    */
   private async routerPrefixedPrompt(text: string): Promise<string> {
     const predictor = getQwenRouterPredictor();
@@ -519,6 +526,31 @@ export class AgentSessionWrapper {
     const stateMessages = (this.inner.agent as { state?: { messages?: readonly StateMessageLike[] | null } } | null)
       ?.state?.messages;
     const context = [...buildShadowContext(stateMessages ?? [], 3), { role: "user" as const, content: text }];
+    if (agentEnabledFromEnv()) {
+      const result = await runQwenAgentChain({
+        decider: async (ctx) => {
+          const suggestion = await qwenRouterSuggestion(predictor, ctx, active);
+          return suggestion ? { action: suggestion.name, arguments: suggestion.arguments } : null;
+        },
+        executor: (action, args) => this.executeResearchToolForAgent(action, args),
+        context,
+      }).catch(() => null);
+      if (!result) return text;
+      appendRouterLog(process.env.RESEARCH_QWEN_ROUTER_LOG ?? "", {
+        ts: new Date().toISOString(),
+        sessionHash: sha256Short(this.sessionId),
+        kind: "agent_chain",
+        steps: result.steps.map((step) => ({
+          action: step.action,
+          arguments: step.arguments,
+          ok: step.ok,
+          summaryPreview: step.summary.slice(0, 200),
+        })),
+        pendingAction: result.pendingAction,
+      });
+      if (result.answeredImmediately) return text;
+      return buildAgentPrompt(text, result);
+    }
     const suggestion = await qwenRouterSuggestion(predictor, context, active).catch(() => null);
     appendRouterLog(process.env.RESEARCH_QWEN_ROUTER_LOG ?? "", {
       ts: new Date().toISOString(),
@@ -529,6 +561,47 @@ export class AgentSessionWrapper {
     });
     if (!suggestion) return text;
     return routerSteerPrefix(suggestion, text);
+  }
+
+  /**
+   * Host-side executor for the read-only research tools of the Qwen chain.
+   * Real services only; failures return { ok:false } so the chain stops.
+   */
+  private async executeResearchToolForAgent(
+    action: string,
+    args: Record<string, unknown>,
+  ): Promise<{ ok: boolean; summary: string }> {
+    try {
+      if (action === "research_search_evidence") {
+        const service = getResearchProjectService();
+        const project = service?.findByWorkspace(this.cwd);
+        if (!project || project.status !== "ready") return { ok: false, summary: "no ready research project at cwd" };
+        const query = typeof args.query === "string" ? args.query.slice(0, 1000) : "";
+        if (!query) return { ok: false, summary: "query required" };
+        const limit = typeof args.limit === "number" ? Math.min(Math.max(Math.trunc(args.limit), 1), 8) : 5;
+        const hits = await service.searchEvidence(project.projectId, query, limit);
+        return { ok: true, summary: JSON.stringify({ projectId: project.projectId, hits }).slice(0, 4000) };
+      }
+      const client = await getResearchAcquisitionClient();
+      if (!client) return { ok: false, summary: "acquisition unavailable" };
+      if (action === "research_search_papers") {
+        const query = typeof args.query === "string" ? args.query.slice(0, 200) : "";
+        if (!query) return { ok: false, summary: "query required" };
+        const limit = typeof args.limit === "number" ? Math.min(Math.max(Math.trunc(args.limit), 1), 20) : 5;
+        const candidates = await client.searchPapers(query, limit);
+        return { ok: true, summary: JSON.stringify({ candidates }).slice(0, 4000) };
+      }
+      if (action === "research_search_repositories") {
+        const title = typeof args.title === "string" ? args.title.slice(0, 300) : "";
+        if (!title) return { ok: false, summary: "title required" };
+        const limit = typeof args.limit === "number" ? Math.min(Math.max(Math.trunc(args.limit), 1), 20) : 5;
+        const repositories = await client.searchRepositories(title, limit);
+        return { ok: true, summary: JSON.stringify({ repositories }).slice(0, 4000) };
+      }
+      return { ok: false, summary: `unsupported agent tool: ${action}` };
+    } catch (error) {
+      return { ok: false, summary: error instanceof Error ? error.message.slice(0, 300) : String(error) };
+    }
   }
 
   private applyForcedEmptySystemPrompt(): void {

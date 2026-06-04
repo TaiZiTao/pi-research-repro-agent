@@ -68,3 +68,15 @@ python training/tests/test_dataset_pipeline.py && python training/tests/test_pre
 - 训练脚本与基线: 003a96c · f08b8b7
 - 影子模式: df80324
 - v2/fp16(用户侧): cdd36c0 · 7c19d04 · eb6b53d · c2f8398
+
+## 6. 桌面端科研演示(commits d928f87 / 41b3e90 / 42a61fc)
+
+- 入口:侧栏 Research 按钮 → 右滑 Research Panel;设置页 Research tab 亦可。
+- PDF 导入(piBridge.selectPdfFile → research.import)→ 项目列表;「在当前会话打开工作区」= handleCwdChange(workspacePath),科研工具随会话注入。
+- 论文候选卡片:research_search_papers ToolResult 渲染(标题/作者/年份/来源/摘要展开/PDF可用);「选择此论文」经 window 事件送入输入框 → Agent 调 research_download_paper(保留先展示-用户选择-再下载门禁)。
+- 证据与校验:research_search_evidence 证据行、research_finalize_answer 校验徽标(对话内 + 经 pi:evidence / pi:finalize 事件实时聚合到 Research Panel「引用与证据」区,含 p.X · chunk_id · score · 原文)。
+- Research Panel 四区:当前论文(标题/页数/状态/ID/工作区/SHA256/错误)、8 阶段 Workflow(pending/running/succeeded/failed/blocked;仅 ready/completed 显示成功)、引用与证据、日志与产物(步骤含 exitCode/artifactRef/artifactBytes/artifactSha256/repairRoundsUsed;确定性验收通过才 completed);detail 轮询 3s。
+- 后端接口:research.detail {projectId} → {project, reproduction|null, recentEvents}。
+- 测试:mapping 7/7(候选/证据/Workflow 映射与空态/失败不显示成功);tsc main+renderer 0、eslint 0。
+- 截屏:docs/screenshot-research.png(主界面;面板交互页需在运行窗口操作后另截)。
+- 降级:recentEvents 返回 [] (事件未持久化);Panel 以右滑层呈现(未并入 files/browser 右侧 tab 体系);PDF 页码定位跳转未实现(展示 p.X · chunk_id 文本);导入后打开=handleCwdChange(不会自动新建会话点击)。

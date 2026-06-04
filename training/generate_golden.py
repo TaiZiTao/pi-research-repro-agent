@@ -6,6 +6,19 @@ import json
 from typing import Any
 
 
+# Evidence search limit distribution is de-biased: each emitted
+# research_search_evidence call takes the next value from a round-robin
+# cycle (5, 3, 8) instead of a single hard-coded limit.
+_EVIDENCE_LIMIT_CYCLE = (5, 3, 8)
+_evidence_limit_state = {"n": 0}
+
+
+def _next_evidence_limit() -> int:
+    value = _EVIDENCE_LIMIT_CYCLE[_evidence_limit_state["n"] % len(_EVIDENCE_LIMIT_CYCLE)]
+    _evidence_limit_state["n"] += 1
+    return value
+
+
 def _pair(call_number: int, name: str, arguments: dict[str, Any], result: dict[str, Any], content: str = "") -> list[dict[str, Any]]:
     call_id = f"call-{call_number}"
     return [
@@ -64,7 +77,7 @@ def _grounded_qa() -> list[dict[str, Any]]:
         paper_id = f"{index:064x}"
         citation = {"paperId": paper_id, "page": 3, "chunkId": "p3-c1", "quote": evidence}
         messages = []
-        messages += _pair(1, "research_search_evidence", {"query": question, "limit": 5}, {"hits": [{**citation, "text": evidence, "score": 0.91}]})
+        messages += _pair(1, "research_search_evidence", {"query": question, "limit": _next_evidence_limit()}, {"hits": [{**citation, "text": evidence, "score": 0.91}]})
         messages += _pair(2, "research_finalize_answer", {"status": "grounded", "answer": evidence, "citations": [citation]}, {"accepted": True, "errors": []})
         records.append(_trajectory(f"paper-qa-grounded-{index:03d}", "paper_qa_grounded", question, messages, f"{evidence} [p.3 · p3-c1]"))
     return records
@@ -88,9 +101,9 @@ def _citation_recovery() -> list[dict[str, Any]]:
         good = {"paperId": paper_id, "page": 4, "chunkId": "p4-c2", "quote": evidence}
         bad = {**good, "page": 9}
         messages = []
-        messages += _pair(1, "research_search_evidence", {"query": question, "limit": 5}, {"hits": [{**good, "text": evidence}]})
+        messages += _pair(1, "research_search_evidence", {"query": question, "limit": _next_evidence_limit()}, {"hits": [{**good, "text": evidence}]})
         messages += _pair(2, "research_finalize_answer", {"status": "grounded", "answer": evidence, "citations": [bad]}, {"accepted": False, "errors": ["citation p4-c2 has an invalid page"]})
-        messages += _pair(3, "research_search_evidence", {"query": f"重新核对：{question}", "limit": 3}, {"hits": [{**good, "text": evidence}]}, "页码校验失败，重新检索并核对引用。")
+        messages += _pair(3, "research_search_evidence", {"query": f"重新核对：{question}", "limit": _next_evidence_limit()}, {"hits": [{**good, "text": evidence}]}, "页码校验失败，重新检索并核对引用。")
         messages += _pair(4, "research_finalize_answer", {"status": "grounded", "answer": evidence, "citations": [good]}, {"accepted": True, "errors": []})
         records.append(_trajectory(f"citation-recovery-{index:03d}", "citation_recovery", question, messages, f"{evidence} [p.4 · p4-c2]"))
     return records
@@ -111,7 +124,7 @@ def _insufficient_evidence() -> list[dict[str, Any]]:
     for index, question in enumerate(questions, start=1):
         answer = "当前论文没有提供足够证据回答该问题。"
         messages = []
-        messages += _pair(1, "research_search_evidence", {"query": question, "limit": 5}, {"hits": []})
+        messages += _pair(1, "research_search_evidence", {"query": question, "limit": _next_evidence_limit()}, {"hits": []})
         messages += _pair(2, "research_finalize_answer", {"status": "insufficient_evidence", "answer": answer, "citations": []}, {"accepted": True, "errors": []})
         records.append(_trajectory(f"insufficient-evidence-{index:03d}", "insufficient_evidence", question, messages, answer))
     return records
@@ -252,7 +265,7 @@ def _search_intent_disambiguation() -> list[dict[str, Any]]:
         web_messages += _pair(1, "research_search_papers", {"query": web_query, "limit": limit}, {"candidates": []})
         records.append(_trajectory(f"intent-search-papers-{index:03d}", "intent_web_vs_paper", f"帮我搜索 {limit} 篇{web_query}，给候选。", web_messages, "检索完成，返回候选列表。"))
         evidence_messages = []
-        evidence_messages += _pair(1, "research_search_evidence", {"query": evidence_question, "limit": 5}, {"hits": []})
+        evidence_messages += _pair(1, "research_search_evidence", {"query": evidence_question, "limit": _next_evidence_limit()}, {"hits": []})
         records.append(_trajectory(f"intent-search-evidence-{index:03d}", "intent_web_vs_paper", f"在当前论文里查一下{paper_query}的{evidence_question}。", evidence_messages, "当前论文证据检索完成。"))
     return records
 

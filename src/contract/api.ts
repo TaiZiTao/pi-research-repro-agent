@@ -401,6 +401,43 @@ export interface Api {
       project: { projectId: string; title: string; status: string; error: string | null; workspacePath: string };
     };
   };
+  "research.detail": {
+    params: { projectId: string };
+    result: {
+      project: {
+        projectId: string;
+        title: string;
+        status: string;
+        pageCount: number | null;
+        error: string | null;
+        workspacePath: string;
+        sourcePdfName: string;
+        sha256: string;
+        createdAt: string;
+        updatedAt: string;
+      };
+      reproduction: {
+        phase: string;
+        title: string;
+        agentReproduction: boolean;
+        repairRoundsUsed: number;
+        repository: { url: string; commitSha: string | null; license: string | null; matchBasis: string } | null;
+        steps: Array<{
+          id: string;
+          title: string;
+          kind: string;
+          status: string;
+          command: string | null;
+          exitCode: number | null;
+          error: string | null;
+          artifactRef: string | null;
+          artifactBytes: number | null;
+          artifactSha256: string | null;
+        }>;
+      } | null;
+      recentEvents: Array<{ type: string; stage?: string; message: string; createdAt: string }>;
+    };
+  };
 
   // System / desktop helpers exposed via Host (or main-bridged)
   "system.home": { params: void; result: { home: string } };

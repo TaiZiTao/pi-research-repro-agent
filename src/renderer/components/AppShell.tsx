@@ -15,6 +15,7 @@ import { FileExplorer } from "./FileExplorer";
 import { FileViewer } from "./FileViewer";
 import { TabBar } from "./TabBar";
 import { SettingsConfig, type SettingsTab } from "./SettingsConfig";
+import { ResearchPanel } from "./research/ResearchPanel";
 import { QuickChannelBinding } from "./channels/QuickChannelBinding";
 import { BrowserDock } from "./browser/BrowserDock";
 import { BrowserAuthorizationDialog } from "./browser/BrowserAuthorizationDialog";
@@ -106,6 +107,7 @@ export function AppShell({
   const [sessionKey, setSessionKey] = useState(0);
   const [explorerRefreshKey, setExplorerRefreshKey] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [researchOpen, setResearchOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState<SettingsTab>("general");
   const [settingsNavigationRequestId, setSettingsNavigationRequestId] = useState(0);
   const [authorizationSettingsSessionId, setAuthorizationSettingsSessionId] = useState<string | null>(null);
@@ -746,10 +748,7 @@ export function AppShell({
         </button>
         <button
           type="button"
-          onClick={() => {
-            setSettingsInitialTab("research");
-            setSettingsOpen(true);
-          }}
+          onClick={() => setResearchOpen(true)}
           title="Research (paper projects)"
           style={{
             width: "100%",
@@ -1886,6 +1885,12 @@ export function AppShell({
           <line x1="15" y1="3" x2="15" y2="21" />
         </svg>
       </button>
+      <ResearchPanel
+        open={researchOpen}
+        sessionCwd={selectedSession?.cwd ?? newSessionCwd ?? null}
+        onClose={() => setResearchOpen(false)}
+      />
+
       {settingsOpen && (
         <SettingsConfig
           cwd={activeCwd ?? selectedSession?.cwd ?? newSessionCwd ?? null}

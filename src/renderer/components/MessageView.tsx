@@ -1,6 +1,7 @@
 import { memo, useState, useRef, useEffect, useMemo, useSyncExternalStore } from "react";
 import { MarkdownBody } from "./MarkdownBody";
 import { scaledChatFont } from "@/lib/chat-appearance";
+import { mapCandidatesFromResult, type CandidateCard } from "./research/mapping.ts";
 import { useCopyFeedback } from "@/hooks/useCopyFeedback";
 import { parseCompactionSummary } from "@/lib/compaction-summary";
 import {
@@ -1124,6 +1125,13 @@ function ToolCallBlock({
         )}
       </button>
 
+      {block.toolName === "research_search_papers" && resultText && !isError && (
+        <CandidateCards
+          resultText={resultText}
+          onSelect={(text) => window.dispatchEvent(new CustomEvent("pi:send-user-text", { detail: text }))}
+        />
+      )}
+
       {/* ── Expanded: input args ── */}
       {expanded && !isEditTool && (
         <pre
@@ -1955,4 +1963,78 @@ function formatUsage(usage: {
   if (usage.cacheRead) parts.push(`${usage.cacheRead.toLocaleString()} cache`);
   if (usage.cost?.total) parts.push(`$${usage.cost.total.toFixed(4)}`);
   return parts.join(" · ");
+}
+function CandidateCards({ resultText, onSelect }: { resultText: string; onSelect?: (text: string) => void }) {
+  const cards = mapCandidatesFromResult(resultText);
+  const [expandedAbstract, setExpandedAbstract] = useState<string | null>(null);
+  if (cards.length === 0) return null;
+  return (
+    <div style={{ padding: "6px 12px 10px", borderTop: "1px solid var(--tool-border)" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--tool-fg)", marginBottom: 6 }}>
+        论文候选 ({cards.length})
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {cards.map((card) => (
+          <CandidateCardView
+            key={card.id}
+            card={card}
+            expandedAbstract={expandedAbstract === card.id}
+            onToggleAbstract={() => setExpandedAbstract((id) => (id === card.id ? null : card.id))}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CandidateCardView(props: {
+  card: CandidateCard;
+  expandedAbstract: boolean;
+  onToggleAbstract: () => void;
+  onSelect?: (text: string) => void;
+}) {
+  const { card, expandedAbstract, onToggleAbstract, onSelect } = props;
+  const authors = card.authors.slice(0, 6).join(", ");
+  return (
+    <div style={{ border: "1px solid var(--tool-border)", borderRadius: 7, padding: 7, background: "var(--bg-panel)" }}>
+      <div style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.35 }}>{card.title}</div>
+      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>
+        {card.year ? String(card.year) : "-"} · {card.source}
+        {card.venue ? " · " + card.venue : ""} · {authors || "无作者"}
+      </div>
+      {card.abstract && (
+        <div
+          style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3, cursor: "pointer" }}
+          onClick={onToggleAbstract}
+        >
+          <div
+            style={{
+              display: "-webkit-box",
+              WebkitLineClamp: expandedAbstract ? undefined : 3,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {card.abstract}
+          </div>
+          <span style={{ color: "var(--accent)" }}>{expandedAbstract ? "收起" : "展开"}</span>
+        </div>
+      )}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 5 }}>
+        <span style={{ fontSize: 11, color: card.pdfAvailable ? "#2e9e5b" : "var(--text-dim)" }}>
+          {card.pdfAvailable ? "PDF 可用" : "无开放 PDF"}
+        </span>
+        {onSelect && card.pdfAvailable && card.pdfUrl && (
+          <button
+            type="button"
+            onClick={() => onSelect("我选择《" + card.title + "》，请下载并导入其开放 PDF：" + card.pdfUrl)}
+            style={{ marginLeft: "auto", padding: "3px 10px", fontSize: 11, cursor: "pointer" }}
+          >
+            选择此论文
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }

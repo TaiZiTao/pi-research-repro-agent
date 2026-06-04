@@ -1,12 +1,13 @@
 import { exec } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
-import type { IngestionProgress } from "../../shared/research/types.ts";
+import type { IngestionProgress, ResearchProject } from "../../shared/research/types.ts";
 import { createInMemoryAcquisitionTransport, createResearchAcquisitionClient } from "./mcp-client.ts";
 import { ResearchProjectService, type ProjectServiceOptions } from "./project-service.ts";
 import { ResearchProjectStore } from "./project-store.ts";
 import type { RunCommand } from "./reproduction/executor.ts";
 import { ReproductionStore } from "./reproduction/store.ts";
+import type { ReproductionPlan } from "./reproduction/types.ts";
 import { resolveResearchRuntimePaths } from "./runtime-paths.ts";
 import { createResearchSessionTools } from "./session-tools.ts";
 
@@ -85,6 +86,14 @@ export function peekResearchProjectService(): ResearchProjectService | undefined
 export function getResearchProjectService(): ResearchProjectService {
   if (!researchService) throw new Error("Research runtime is unavailable");
   return researchService;
+}
+
+export function getResearchProjectById(projectId: string): ResearchProject | undefined {
+  return researchStore?.get(projectId);
+}
+
+export function getReproductionPlanById(projectId: string): ReproductionPlan | undefined {
+  return reproductionStore?.get(projectId);
 }
 
 export async function createResearchRuntimeTools(cwd: string) {

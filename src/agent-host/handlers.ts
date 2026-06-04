@@ -114,7 +114,7 @@ import { credentialStateMatches, recoverCommittedCredential, type CredentialTarg
 import { FileSuggestionRequestError, fileSuggestionService } from "./file-suggestions";
 import { initializeManagedProcessService } from "./managed-process/runtime";
 import { ManagedProcessError } from "./managed-process/service";
-import { getResearchProjectService } from "./research/runtime";
+import { getReproductionPlanById, getResearchProjectById, getResearchProjectService } from "./research/runtime";
 import type {
   ManagedProcessReadParams,
   ManagedProcessWaitParams,
@@ -773,6 +773,51 @@ export function registerHandlers(server: RpcServer): () => Promise<void> {
       }
     },
 
+    "research.detail": (params) => {
+      const input = params as { projectId?: unknown } | undefined;
+      const projectId = typeof input?.projectId === "string" ? input.projectId : "";
+      if (!projectId) throw new RpcError({ code: "BAD_REQUEST", message: "projectId required" });
+      const project = getResearchProjectById(projectId);
+      if (!project) throw new RpcError({ code: "NOT_FOUND", message: "research project not found" });
+      const reproduction = getReproductionPlanById(projectId);
+      return {
+        project: {
+          projectId: project.projectId,
+          title: project.title,
+          status: project.status,
+          pageCount: project.pageCount,
+          error: project.error,
+          workspacePath: project.workspacePath,
+          sourcePdfName: project.sourcePdfName,
+          sha256: project.sha256,
+          createdAt: project.createdAt,
+          updatedAt: project.updatedAt,
+        },
+        reproduction:
+          reproduction === undefined
+            ? null
+            : {
+                phase: reproduction.phase,
+                title: reproduction.title,
+                agentReproduction: reproduction.agentReproduction,
+                repairRoundsUsed: reproduction.repairRoundsUsed,
+                repository: reproduction.repository === null ? null : { ...reproduction.repository },
+                steps: reproduction.steps.map((step) => ({
+                  id: step.id,
+                  title: step.title,
+                  kind: step.kind,
+                  status: step.status,
+                  command: step.command,
+                  exitCode: step.exitCode,
+                  error: step.error,
+                  artifactRef: step.artifactRef,
+                  artifactBytes: (step as { artifactBytes?: number | null }).artifactBytes ?? null,
+                  artifactSha256: (step as { artifactSha256?: string | null }).artifactSha256 ?? null,
+                })),
+              },
+        recentEvents: [],
+      };
+    },
     "host.ping": () => ({ ok: true as const, ts: Date.now() }),
 
     "host.toolchain": async (params) => {

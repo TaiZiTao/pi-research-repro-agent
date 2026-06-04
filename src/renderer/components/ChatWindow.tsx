@@ -313,6 +313,15 @@ export function ChatWindow({
   useEffect(() => {
     onSessionStatsChange?.(sessionStatsRef.current);
   }, [statsKey, onSessionStatsChange]);
+  // Paper candidate "select" bubbles through a window event into the composer.
+  useEffect(() => {
+    const listener = (event: Event) => {
+      const detail = (event as CustomEvent<string>).detail;
+      if (typeof detail === "string" && detail.trim()) void handleSend(detail);
+    };
+    window.addEventListener("pi:send-user-text", listener);
+    return () => window.removeEventListener("pi:send-user-text", listener);
+  }, [handleSend]);
   useEffect(
     () => () => {
       onSessionStatsChange?.(null);

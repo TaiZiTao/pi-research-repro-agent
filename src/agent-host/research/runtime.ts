@@ -75,8 +75,15 @@ export function initializeResearchRuntime(options: InitializeResearchRuntimeOpti
       onPut: (previous, next) =>
         recordReproductionPlanPut(next.projectId, previous, next, (options.now ?? (() => new Date()))().toISOString()),
     });
+    // Downloading open-access PDFs is slow on flaky networks; default to 120s
+    // (previously the 20s DEFAULT_NETWORK_TIMEOUT_MS made large/far mirrors
+    // time out), overridable via RESEARCH_ACQUISITION_TIMEOUT_MS.
+    const rawTimeout = (options.env ?? process.env).RESEARCH_ACQUISITION_TIMEOUT_MS;
+    const parsedTimeout = rawTimeout ? Number(rawTimeout) : Number.NaN;
+    const acquisitionTimeoutMs = Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : 120_000;
     const client = createResearchAcquisitionClient({
       transport: createInMemoryAcquisitionTransport(),
+      timeoutMs: acquisitionTimeoutMs,
     });
     researchStore = store;
     researchService = service;

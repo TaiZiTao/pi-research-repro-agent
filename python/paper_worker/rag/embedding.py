@@ -1,4 +1,13 @@
 from abc import ABC, abstractmethod
+from pathlib import Path
+
+
+def resolve_model_reference(model_name: str, local_files_only: bool) -> str:
+    if not local_files_only or Path(model_name).is_absolute():
+        return model_name
+    from huggingface_hub import snapshot_download
+
+    return snapshot_download(model_name, local_files_only=True)
 
 
 class BaseEmbedding(ABC):
@@ -22,7 +31,8 @@ class SentenceTransformerEmbedding(BaseEmbedding):
     def _load(self):
         if self._model is None:
             from sentence_transformers import SentenceTransformer
-            self._model = SentenceTransformer(self.model_name, local_files_only=self.local_files_only)
+            model_reference = resolve_model_reference(self.model_name, self.local_files_only)
+            self._model = SentenceTransformer(model_reference, local_files_only=self.local_files_only)
             self.dimension = int(self._model.get_embedding_dimension())
         return self._model
 

@@ -12,6 +12,8 @@
  * session main model and looped on "tool not found".
  */
 
+import { appendFileSync, mkdirSync } from "node:fs";
+import path from "node:path";
 import { isResearchToolName } from "./qwen-tools.ts";
 import type { ShadowPredictor } from "./qwen-shadow.ts";
 
@@ -65,4 +67,23 @@ export function routerSteerPrefix(suggestion: RouterSuggestion, userText: string
 /** True when any active tool belongs to the research family. */
 export function hasResearchTool(activeToolNames: readonly string[]): boolean {
   return activeToolNames.some((name) => isResearchToolName(name));
+}
+export interface RouterLogRecord {
+  ts: string;
+  sessionHash: string;
+  kind: "router_suggestion" | "deepseek_tool_calls";
+  suggestion?: { name: string; arguments: Record<string, unknown> } | null;
+  tools?: string[];
+  userPreview?: string;
+}
+
+/** Best-effort JSONL record; never throws into the prompt path. */
+export function appendRouterLog(logPath: string, record: RouterLogRecord): void {
+  if (!logPath) return;
+  try {
+    mkdirSync(path.dirname(logPath), { recursive: true });
+    appendFileSync(logPath, JSON.stringify(record) + "\n", "utf8");
+  } catch {
+    /* logging is best-effort */
+  }
 }

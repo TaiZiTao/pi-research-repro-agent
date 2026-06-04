@@ -36,7 +36,13 @@ import { createManagedProcessToolDefinitions } from "./managed-process/tools";
 import { installManagedProcessSessionRedaction } from "./managed-process/session-redaction";
 import { createResearchRuntimeTools } from "./research/runtime";
 import { RESEARCH_QWEN_PROVIDER } from "./research/qwen-tools";
-import { hasResearchTool, qwenRouterSuggestion, routerEnabledFromEnv, routerSteerPrefix } from "./research/qwen-router";
+import {
+  appendRouterLog,
+  hasResearchTool,
+  qwenRouterSuggestion,
+  routerEnabledFromEnv,
+  routerSteerPrefix,
+} from "./research/qwen-router";
 import {
   buildShadowContext,
   createQwenShadow,
@@ -322,6 +328,25 @@ export class AgentSessionWrapper {
   }
 
   start(): void {
+    const routerLogPath = routerEnabledFromEnv() ? (process.env.RESEARCH_QWEN_ROUTER_LOG ?? "") : "";
+    if (routerLogPath) {
+      this.inner.subscribe((event: AgentEvent) => {
+        if (event.type !== "message_end") return;
+        const message = (event as { message?: unknown }).message as AssistantEventMessage | null;
+        if (!message || message.role !== "assistant") return;
+        const toolCalls = Array.isArray((message as { tool_calls?: unknown }).tool_calls)
+          ? (message as { tool_calls: Array<{ function?: { name?: unknown } }> }).tool_calls
+              .map((call) => (typeof call.function?.name === "string" ? call.function.name : ""))
+              .filter(Boolean)
+          : [];
+        appendRouterLog(routerLogPath, {
+          ts: new Date().toISOString(),
+          sessionHash: sha256Short(this.sessionId),
+          kind: "deepseek_tool_calls",
+          tools: toolCalls,
+        });
+      });
+    }
     this.unsubscribe = this.inner.subscribe((event: AgentEvent) => {
       this.resetIdleTimer();
       const displayEvent = this.withExternalChannelSource(event);
@@ -492,6 +517,13 @@ export class AgentSessionWrapper {
       ?.state?.messages;
     const context = [...buildShadowContext(stateMessages ?? [], 3), { role: "user" as const, content: text }];
     const suggestion = await qwenRouterSuggestion(predictor, context, active).catch(() => null);
+    appendRouterLog(process.env.RESEARCH_QWEN_ROUTER_LOG ?? "", {
+      ts: new Date().toISOString(),
+      sessionHash: sha256Short(this.sessionId),
+      kind: "router_suggestion",
+      suggestion: suggestion ? { name: suggestion.name, arguments: suggestion.arguments } : null,
+      userPreview: text.slice(0, 80),
+    });
     if (!suggestion) return text;
     return routerSteerPrefix(suggestion, text);
   }

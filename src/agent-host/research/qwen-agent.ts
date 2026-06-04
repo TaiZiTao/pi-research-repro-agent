@@ -113,3 +113,30 @@ export function buildAgentPrompt(question: string, result: AgentChainResult): st
   parts.push("用户问题:" + question);
   return parts.join("\n");
 }
+/**
+ * Guidance appended when a read-only research tool returned an empty list,
+ * steering the next Qwen decision towards an English retry for English papers.
+ */
+export const EMPTY_RESULT_HINT =
+  "[检索结果为空:论文为英文,建议下一步把关键词翻译成英文(例如把中文问题译成英文)后重新检索。]";
+
+/**
+ * Detect an empty hits/candidates/repositories array inside a tool result and
+ * append the hint. Passes text through unchanged otherwise (pure helper).
+ */
+export function withEmptyResultHint(resultText: string, hint: string): string {
+  try {
+    const parsed = JSON.parse(resultText) as Record<string, unknown>;
+    if (parsed && typeof parsed === "object") {
+      for (const key of ["hits", "candidates", "repositories"]) {
+        const value = parsed[key];
+        if (Array.isArray(value) && value.length === 0) {
+          return resultText + "\n" + hint;
+        }
+      }
+    }
+  } catch {
+    /* not JSON: pass through */
+  }
+  return resultText;
+}

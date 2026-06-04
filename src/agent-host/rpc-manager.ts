@@ -39,7 +39,13 @@ import {
   getResearchAcquisitionClient,
   getResearchProjectService,
 } from "./research/runtime";
-import { agentEnabledFromEnv, buildAgentPrompt, runQwenAgentChain } from "./research/qwen-agent";
+import {
+  EMPTY_RESULT_HINT,
+  agentEnabledFromEnv,
+  buildAgentPrompt,
+  runQwenAgentChain,
+  withEmptyResultHint,
+} from "./research/qwen-agent";
 import { RESEARCH_QWEN_PROVIDER } from "./research/qwen-tools";
 import {
   appendRouterLog,
@@ -580,7 +586,13 @@ export class AgentSessionWrapper {
         if (!query) return { ok: false, summary: "query required" };
         const limit = typeof args.limit === "number" ? Math.min(Math.max(Math.trunc(args.limit), 1), 8) : 5;
         const hits = await service.searchEvidence(project.projectId, query, limit);
-        return { ok: true, summary: JSON.stringify({ projectId: project.projectId, hits }).slice(0, 4000) };
+        return {
+          ok: true,
+          summary: withEmptyResultHint(
+            JSON.stringify({ projectId: project.projectId, hits }).slice(0, 4000),
+            EMPTY_RESULT_HINT,
+          ),
+        };
       }
       const client = await getResearchAcquisitionClient();
       if (!client) return { ok: false, summary: "acquisition unavailable" };
@@ -589,14 +601,20 @@ export class AgentSessionWrapper {
         if (!query) return { ok: false, summary: "query required" };
         const limit = typeof args.limit === "number" ? Math.min(Math.max(Math.trunc(args.limit), 1), 20) : 5;
         const candidates = await client.searchPapers(query, limit);
-        return { ok: true, summary: JSON.stringify({ candidates }).slice(0, 4000) };
+        return {
+          ok: true,
+          summary: withEmptyResultHint(JSON.stringify({ candidates }).slice(0, 4000), EMPTY_RESULT_HINT),
+        };
       }
       if (action === "research_search_repositories") {
         const title = typeof args.title === "string" ? args.title.slice(0, 300) : "";
         if (!title) return { ok: false, summary: "title required" };
         const limit = typeof args.limit === "number" ? Math.min(Math.max(Math.trunc(args.limit), 1), 20) : 5;
         const repositories = await client.searchRepositories(title, limit);
-        return { ok: true, summary: JSON.stringify({ repositories }).slice(0, 4000) };
+        return {
+          ok: true,
+          summary: withEmptyResultHint(JSON.stringify({ repositories }).slice(0, 4000), EMPTY_RESULT_HINT),
+        };
       }
       return { ok: false, summary: `unsupported agent tool: ${action}` };
     } catch (error) {

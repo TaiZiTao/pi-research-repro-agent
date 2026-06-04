@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { READONLY_RESEARCH_TOOLS, agentEnabledFromEnv, buildAgentPrompt, runQwenAgentChain } from "./qwen-agent.ts";
+import {
+  EMPTY_RESULT_HINT,
+  READONLY_RESEARCH_TOOLS,
+  agentEnabledFromEnv,
+  buildAgentPrompt,
+  runQwenAgentChain,
+  withEmptyResultHint,
+} from "./qwen-agent.ts";
 
 function deciderFrom(decisions) {
   let i = 0;
@@ -99,4 +106,18 @@ test("buildAgentPrompt includes trace, question and pending action", () => {
   assert.match(prompt, /research_finalize_answer/);
   assert.match(prompt, /用户问题:论文贡献是什么/);
   assert.ok(prompt.includes('{"hits":[{"page":1}]}'));
+});
+test("empty hits get the retry hint appended", () => {
+  const out = withEmptyResultHint(JSON.stringify({ hits: [] }), EMPTY_RESULT_HINT);
+  assert.ok(out.endsWith(EMPTY_RESULT_HINT));
+  assert.ok(out.startsWith("{"));
+});
+
+test("non-empty results pass through unchanged", () => {
+  const text = JSON.stringify({ hits: [{ page: 1 }] });
+  assert.equal(withEmptyResultHint(text, EMPTY_RESULT_HINT), text);
+});
+
+test("malformed text passes through unchanged", () => {
+  assert.equal(withEmptyResultHint("not json", EMPTY_RESULT_HINT), "not json");
 });

@@ -93,4 +93,4 @@ python training/tests/test_dataset_pipeline.py && python training/tests/test_pre
 - 现象:research_search_evidence 的 limit 参数训练几乎全为 5(唯一例外 1 条 3);评测侧 evidence 查询可能要求其他取值 → 参数匹配率受损。
 - 修复:training/generate_golden.py 引入全局轮换 _EVIDENCE_LIMIT_CYCLE=(5,3,8),每个 research_search_evidence 调用依次取下一值(确定性)。
 - 数据集(257 轨迹)重建后统计:research_search_evidence 调用 42 次,limit 3/5/8 = 14/14/14(原 41×5 + 1×3);validate_dataset 通过。
-- 对照实验:40 步 balanced-v2 训练 + 111 条评测结果见 commit/文件(本会话后台运行后如实记录,不伪造)。
+- 对照实验(40 步 balanced-v2,本会话真实运行):action 70.27% / argument 84.34% / tool-needed F1 86.91% / over-tool 89.29%;文件 eval/results/balanced-v2/qwen3-0.6b-lora.json。与 refined(72.97/87.95/86.01/96.43)相比动作准确率基本持平、参数率略降;over-tool 仍高(该 40 步对照未叠加 answer 上采样),记录为平衡点在 limit 维度收敛的第一步,未宣称更好。

@@ -37,11 +37,11 @@
 
 answer 1.5× 上采样与 eval split 隔离、fp16 验证等由后续 commit 记录:cdd36c0(eval splits + fractional answer sampling)、7c19d04(fp16 lora validation/blind)、eb6b53d/c2f8398(hard-case v2 设计与计划)。本表未包含未经本会话复核的数字;最终简历口径以定稿评测为准。
 
-## 3. Qwen LoRA 影子模式(commit df80324)
+## 3. Qwen 接入(commit df80324 影子旁路;e76xxxx 起 OpenAI 兼容 serve 正式可用)
 
 - off/shadow 两态(env RESEARCH_QWEN_MODE,默认 off 不加载);每轮 assistant 回复后异步旁路预测,DeepSeek 唯一决策者,Qwen 异常静默回退;JSONL 对比记录(会话匿名哈希、参数脱敏、不落论文全文)。
 - 验证:TS 单测 7/7;真机冒烟 answer-1.5 加载 ~6.5s、单条预测 ~1.8s、返回 research_search_papers{query,limit:3}。
-- 边界:真实“DeepSeek 会话每轮对比”需桌面运行验证;worker 常驻 spawn 依赖 UTF-8 stdio 与 slow tokenizer(见 docs/agent-shadow.md)。
+- 正式接入:python/agent_shadow/qwen_openai_server.py 提供 OpenAI 兼容 /v1/chat/completions(Base/QLoRA 可切),把 <tool_call> 转成 OpenAI tool_calls 供 Pi 真实执行;冒烟验证返回 research_search_papers{query,limit:3}(~2.1s)。Pi 侧配置见 docs/agent-integration.md;端到端桌面会话验证待真机。
 
 ## 4. 复现命令
 

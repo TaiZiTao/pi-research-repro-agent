@@ -14,6 +14,8 @@ function step(overrides = {}) {
     status: "succeeded",
     exitCode: 0,
     artifactRef: null,
+    artifactBytes: null,
+    artifactSha256: null,
     error: null,
     ...overrides,
   };

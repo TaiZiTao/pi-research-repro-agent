@@ -74,6 +74,7 @@ if (typeof preloadLocation === "string" && isTrustedPreloadLocation(preloadLocat
     inspectLocalFiles: (request) => ipcRenderer.invoke("desktop:inspect-local-files", request),
     getPathForFile: (file: File) => (webUtils ? webUtils.getPathForFile(file) : null),
     selectDirectory: () => ipcRenderer.invoke("desktop:select-directory"),
+    selectPdfFile: () => ipcRenderer.invoke("desktop:select-pdf"),
     setChannelCredential: (payload) => ipcRenderer.invoke("desktop:set-channel-credential", payload),
     saveFile: (opts) => ipcRenderer.invoke("desktop:save-file", opts),
     saveBinaryFile: (opts) => ipcRenderer.invoke("desktop:save-binary-file", opts),

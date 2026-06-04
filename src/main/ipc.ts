@@ -221,6 +221,16 @@ export function installDesktopIpc(options: DesktopIpcOptions): void {
     return directory;
   });
 
+  trustedHandle("desktop:select-pdf", async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    const result = await dialog.showOpenDialog(win ?? undefined!, {
+      properties: ["openFile"],
+      filters: [{ name: "PDF", extensions: ["pdf"] }],
+    });
+    if (result.canceled || !result.filePaths[0]) return null;
+    return result.filePaths[0];
+  });
+
   trustedHandle("desktop:set-channel-credential", (_event, payload: ChannelCredentialWrite) => {
     if (!payload || typeof payload !== "object") throw new Error("Invalid channel credential payload");
     if (!payload.credential?.token?.trim() || !payload.credential.baseUrl?.trim()) {

@@ -380,6 +380,28 @@ export interface Api {
     result: PluginsResponse;
   };
 
+  // Research projects (agent-host research runtime)
+  "research.list": {
+    params: void;
+    result: {
+      projects: Array<{
+        projectId: string;
+        title: string;
+        status: string;
+        pageCount: number | null;
+        error: string | null;
+        workspacePath: string;
+        createdAt: string;
+      }>;
+    };
+  };
+  "research.import": {
+    params: { pdfPath: string; title?: string };
+    result: {
+      project: { projectId: string; title: string; status: string; error: string | null; workspacePath: string };
+    };
+  };
+
   // System / desktop helpers exposed via Host (or main-bridged)
   "system.home": { params: void; result: { home: string } };
   "system.validateCwd": {

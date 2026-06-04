@@ -114,6 +114,7 @@ import { credentialStateMatches, recoverCommittedCredential, type CredentialTarg
 import { FileSuggestionRequestError, fileSuggestionService } from "./file-suggestions";
 import { initializeManagedProcessService } from "./managed-process/runtime";
 import { ManagedProcessError } from "./managed-process/service";
+import { getResearchProjectService } from "./research/runtime";
 import type {
   ManagedProcessReadParams,
   ManagedProcessWaitParams,
@@ -734,6 +735,44 @@ export function registerHandlers(server: RpcServer): () => Promise<void> {
   });
 
   server.handle({
+    "research.list": () => {
+      const service = getResearchProjectService();
+      return {
+        projects: service.listProjects().map((project) => ({
+          projectId: project.projectId,
+          title: project.title,
+          status: project.status,
+          pageCount: project.pageCount,
+          error: project.error,
+          workspacePath: project.workspacePath,
+          createdAt: project.createdAt,
+        })),
+      };
+    },
+    "research.import": async (params) => {
+      const input = params as { pdfPath?: unknown; title?: unknown } | undefined;
+      const pdfPath = typeof input?.pdfPath === "string" ? input.pdfPath : "";
+      if (!pdfPath || !path.isAbsolute(pdfPath)) {
+        throw new RpcError({ code: "BAD_REQUEST", message: "absolute pdf path required" });
+      }
+      const title = typeof input?.title === "string" && input.title.trim() ? input.title.trim() : undefined;
+      try {
+        const project = await getResearchProjectService().importPdf({ sourcePath: pdfPath, title });
+        return {
+          project: {
+            projectId: project.projectId,
+            title: project.title,
+            status: project.status,
+            error: project.error,
+            workspacePath: project.workspacePath,
+          },
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        throw new RpcError({ code: "BAD_REQUEST", message: message.slice(0, 500) });
+      }
+    },
+
     "host.ping": () => ({ ok: true as const, ts: Date.now() }),
 
     "host.toolchain": async (params) => {

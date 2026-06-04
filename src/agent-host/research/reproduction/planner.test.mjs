@@ -57,6 +57,8 @@ test("adopts a verified official repository and starts with a clone step", () =>
     status: "pending",
     exitCode: null,
     artifactRef: null,
+    artifactBytes: null,
+    artifactSha256: null,
     error: null,
   });
 });

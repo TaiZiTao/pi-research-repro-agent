@@ -8,6 +8,7 @@ import { PluginsConfig } from "./PluginsConfig";
 import { ToolchainsConfig } from "./ToolchainsConfig";
 import { BrowserSettings } from "./browser/BrowserSettings";
 import { ChannelsConfig } from "./channels/ChannelsConfig";
+import { ResearchSettings } from "./ResearchSettings";
 import type { ChannelsSnapshot } from "@shared/channel-types";
 import type { ChatAppearancePreferences, ChatFontSize, ChatLayout } from "@shared/chat-appearance";
 import { APP_WEBSITE_URL } from "@shared/app-links";
@@ -17,7 +18,8 @@ import { APP_AUTHOR, APP_DISPLAY_NAME, APP_GITHUB_URL, APP_VERSION, PI_VERSION }
 import appIconUrl from "../../../build/icon.png";
 import { isAutoSessionTitleEnabled, setAutoSessionTitleEnabled } from "../lib/auto-session-title";
 
-export type SettingsTab = "general" | "browser" | "channels" | "models" | "tools" | "skills" | "plugins" | "about";
+export type SettingsTab =
+  "general" | "browser" | "channels" | "models" | "tools" | "skills" | "plugins" | "research" | "about";
 
 interface SettingsConfigProps {
   cwd: string | null;
@@ -95,6 +97,7 @@ export function SettingsConfig({
     { id: "browser", label: t("browser", "Browser") },
     { id: "channels", label: t("channels", "Channels") },
     { id: "tools", label: t("developerTools", "Developer Tools") },
+    { id: "research", label: "Research" },
     { id: "about", label: t("about", "About") },
   ];
 
@@ -321,6 +324,7 @@ export function SettingsConfig({
               ) : (
                 <ProjectRequired />
               ))}
+            {activeTab === "research" && <ResearchSettings />}
             {activeTab === "about" && <AboutSettings onClose={onClose} />}
           </div>
         </div>

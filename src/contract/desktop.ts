@@ -150,6 +150,8 @@ export interface PiBridge {
   /** Resolve the absolute filesystem path for a dropped/injected File object. */
   getPathForFile?: (file: File) => string | null;
   selectDirectory: () => Promise<string | null>;
+  /** Native PDF picker for research import; resolves the absolute path or null. */
+  selectPdfFile: () => Promise<string | null>;
   setChannelCredential: (payload: ChannelCredentialWrite) => Promise<void>;
   saveFile: (opts: SaveTextFileOptions) => Promise<string | null>;
   saveBinaryFile: (opts: SaveBinaryFileOptions) => Promise<string | null>;

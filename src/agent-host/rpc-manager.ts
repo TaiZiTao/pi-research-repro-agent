@@ -35,6 +35,74 @@ import { peekManagedProcessService } from "./managed-process/runtime";
 import { createManagedProcessToolDefinitions } from "./managed-process/tools";
 import { installManagedProcessSessionRedaction } from "./managed-process/session-redaction";
 import { createResearchRuntimeTools } from "./research/runtime";
+import {
+  buildShadowContext,
+  createQwenShadow,
+  extractAssistantAction,
+  fromEnv,
+  logShadowRecord,
+  sha256Short,
+  type AssistantEventMessage,
+  type ShadowConfig,
+  type ShadowPredictor,
+  type StateMessageLike,
+} from "./research/qwen-shadow";
+
+// ============================================================================
+// Qwen LoRA shadow mode (off by default; never affects the host agent)
+// ============================================================================
+
+let qwenShadowConfig: ShadowConfig | null = null;
+let qwenShadowPredictor: ShadowPredictor | null = null;
+
+function resolveQwenShadowConfig(): ShadowConfig {
+  if (!qwenShadowConfig) qwenShadowConfig = fromEnv(process.env);
+  return qwenShadowConfig;
+}
+
+function getQwenShadowPredictor(): ShadowPredictor | null {
+  const config = resolveQwenShadowConfig();
+  if (config.mode !== "shadow") return null;
+  if (!qwenShadowPredictor) qwenShadowPredictor = createQwenShadow(config);
+  return qwenShadowPredictor;
+}
+
+/**
+ * Shadow observer: after every assistant round (message_end), the same
+ * decision context is sent to the local Qwen LoRA in the background. Qwen
+ * never executes tools and can never influence DeepSeek output; every
+ * failure degrades silently and only a redacted JSONL record is written.
+ */
+function attachShadowObserver(wrapper: AgentSessionWrapper): void {
+  const config = resolveQwenShadowConfig();
+  if (config.mode !== "shadow" || !config.adapter || !config.logPath) return;
+  const shadow = getQwenShadowPredictor();
+  if (!shadow) return;
+  wrapper.onEvent((event) => {
+    if (event.type !== "message_end") return;
+    const message = (event as { message?: unknown }).message as AssistantEventMessage | null;
+    if (!message || message.role !== "assistant") return;
+    const deepseek = extractAssistantAction(message);
+    const agentState = (wrapper.inner.agent as { state?: { messages?: readonly StateMessageLike[] | null } } | null)
+      ?.state;
+    const context = buildShadowContext(agentState?.messages ?? [], 4);
+    if (context.length === 0 && !deepseek) return;
+    const sessionHash = sha256Short(wrapper.sessionId);
+    void (async () => {
+      const qwen = await shadow.predict(context);
+      logShadowRecord(
+        {
+          ts: new Date().toISOString(),
+          sessionHash,
+          qwen,
+          deepseek,
+          match: qwen && deepseek ? qwen.action === deepseek.action : null,
+        },
+        { sessionId: wrapper.sessionId, logPath: config.logPath },
+      );
+    })();
+  });
+}
 
 // ============================================================================
 // Types
@@ -1480,6 +1548,7 @@ export async function startRpcSession(
     wrapper.setRuntimeDiagnostics(services.diagnostics);
     wrapper.setToolchainSummary(executionContext.inventoryRevision, executionContext.summary);
     wrapper.start();
+    attachShadowObserver(wrapper);
     wrapper.syncBrowserToolActivation();
 
     const realSessionFile = inner.sessionFile as string | undefined;

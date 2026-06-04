@@ -187,6 +187,10 @@
 
 > 注记（2026-09-04 Over-tool 对抗训练）：为压制过度调用，将 answer 类 2× 上采样并把步数提到 171（≈1 epoch，682 样本），loss 0.3963、3.83GB、24.2min（eval/results/overtool111/）。111 条评测：Over-tool Rate 96.43%→3.57%（27/28 拒答正确），Tool-needed F1 98.18%，动作准确率 81.08%；但出现权衡副作用——参数匹配率 87.95%→61.45%，且部分“应调工具”类受损：finalize 14/14→3/14、execute 5/8→1/8、verify 7/7→5/7；参数失败集中于 research_search_papers 的 limit（评测要求 2/3/4，模型一律填 5，训练样本几乎全为 limit:5 的先验）。结论：answer 过采样 2× 修正了过度调用但压制了工具调用，需居中调整（如 answer 上采样 1.5×/工具参数多样化/分阶段训练），本版保留为对照。
 
+> 注记（2026-09-04 Qwen LoRA 影子模式）：实现 off/shadow 两态（env RESEARCH_QWEN_MODE，默认 off 不加载模型）。shadow 下 agent-host 每轮 assistant 回复后，把最近上下文异步发给常驻 python worker（模型+adapter 只加载一次，worker import eval 的 TOOL_SCHEMAS/SYSTEM_PROMPT/parse_decision 以保持协议一致），预测 {action,arguments,jsonValid,latencyMs} 与 DeepSeek 实际动作对比写入 JSONL（sessionId 匿名哈希、参数 token/路径脱敏、不落论文全文）。Qwen 不执行工具、异常静默回退。
+>
+> 真机验证：answer-1.5 adapter 加载约 6.5s，单条预测约 1.8s，返回 research_search_papers {query, limit:3}（中文 UTF-8 正常）。踩坑记录：Node spawn 子进程 stdin/stdout 默认 cp936 导致中文乱码/UnicodeEncodeError，worker 内 reconfigure(encoding="utf-8") 修复；spawn 进程内 rust fast tokenizer 对损坏输入报 TextEncodeInput，改用 use_fast=False + 手动 tokenize 规避。TS 单测 7/7（off 不 spawn/影子预测/异常回退/脱敏/单例）。接入文件：python/agent_shadow/qwen_shadow_worker.py、src/agent-host/research/qwen-shadow.ts(.test.mjs)、rpc-manager.ts attachShadowObserver、docs/agent-shadow.md。
+
 ## 第 11～12 天：LoRA 训练与接入
 
 **新增：**

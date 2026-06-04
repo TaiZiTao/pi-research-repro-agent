@@ -83,6 +83,22 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_sse(self, events, finish_reason="stop", status=200):
+        """Minimal OpenAI-style server-sent events: one content/tool delta, a
+        finish chunk carrying finish_reason, then [DONE]. Kept single-shot
+        because the underlying generation is not incremental."""
+        self.send_response(status)
+        self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.send_header("Cache-Control", "no-cache")
+        self.end_headers()
+        for event in events:
+            payload = json.dumps(event, ensure_ascii=False)
+            self.wfile.write(("data: %s\n\n" % payload).encode("utf-8"))
+        finish_event = json.dumps({"choices": [{"index": 0, "delta": {}, "finish_reason": finish_reason}]})
+        self.wfile.write(("data: %s\n\n" % finish_event).encode("utf-8"))
+        self.wfile.write(b"data: [DONE]\n\n")
+        self.wfile.flush()
+
     def do_GET(self):
         if self.path.rstrip("/") == "/v1/models":
             model_id = "qwen3-0.6b" + ("-lora" if ADAPTER else "")
@@ -111,9 +127,19 @@ class Handler(BaseHTTPRequestHandler):
             messages = [{"role": "system", "content": SYSTEM_PROMPT}, *messages]
         else:
             messages[0] = {"role": "system", "content": SYSTEM_PROMPT}
-        tools = request.get("tools")
-        if not isinstance(tools, list) or not tools:
+        # Tool catalog policy: when the caller omits "tools" entirely (direct
+        # curl demos) fall back to the eval catalog so the model still reasons
+        # over research tools. When the caller sends an explicit list -- which
+        # the Pi router/main model always does -- it is used verbatim and is
+        # NEVER extended with static tools, so an empty active set stays empty.
+        raw_tools = request.get("tools")
+        if raw_tools is None:
             tools = TOOL_SCHEMAS
+        elif isinstance(raw_tools, list):
+            tools = raw_tools
+        else:
+            self._send_json(*_openai_error(400, "tools must be a list"))
+            return
         started = time.perf_counter()
         try:
             text, parsed = _predict(model, tokenizer, messages, tools)
@@ -135,16 +161,49 @@ class Handler(BaseHTTPRequestHandler):
             ]
             finish = "tool_calls"
         else:
-            content = text
+            content = (text or "").replace("<|im_end|>", "").replace("<|endoftext|>", "").strip() or None
         message = {"role": "assistant", "content": content}
         if tool_calls is not None:
             message["tool_calls"] = tool_calls
         model_id = "qwen3-0.6b" + ("-lora" if ADAPTER else "")
+        completion_id = "chatcmpl-" + uuid.uuid4().hex[:16]
+        created = int(time.time())
+        if request.get("stream") is True:
+            delta = {}
+            if tool_calls is not None:
+                delta["role"] = "assistant"
+                delta["tool_calls"] = [
+                    {
+                        "index": 0,
+                        "id": tool_calls[0]["id"],
+                        "type": "function",
+                        "function": {
+                            "name": tool_calls[0]["function"]["name"],
+                            "arguments": tool_calls[0]["function"]["arguments"],
+                        },
+                    }
+                ]
+            else:
+                delta["role"] = "assistant"
+                delta["content"] = content or ""
+            self._send_sse(
+                [
+                    {
+                        "id": completion_id,
+                        "object": "chat.completion.chunk",
+                        "created": created,
+                        "model": model_id,
+                        "choices": [{"index": 0, "delta": delta}],
+                    }
+                ],
+                finish_reason=finish,
+            )
+            return
         self._send_json(
             {
-                "id": "chatcmpl-" + uuid.uuid4().hex[:16],
+                "id": completion_id,
                 "object": "chat.completion",
-                "created": int(time.time()),
+                "created": created,
                 "model": model_id,
                 "choices": [{"index": 0, "message": message, "finish_reason": finish}],
                 "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},

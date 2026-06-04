@@ -82,12 +82,14 @@ python training/tests/test_dataset_pipeline.py && python training/tests/test_pre
 - 截屏:docs/screenshot-research.png(主界面;面板交互页需在运行窗口操作后另截)。
 - 降级:recentEvents 为进程内环形账本(每项目上限 200、进程生命周期内有效,跨进程重启不保留;非 SQLite 持久化);PDF 页码定位为 #page=N best-effort(原生 PDF 预览不支持脚本化翻页,未引入 pdf.js);导入后打开=handleCwdChange(不会自动新建会话点击)。
 
-## 7. Qwen 本地模型会话切换(本轮实现)
+## 7. Qwen 本地工具路由器(架构修正)
 
-- 生命周期 RPC:research.qwen.status/start/stop;设置页 Research tab「Qwen 本地科研模型」区:启动/停止/刷新 + 「写入模型配置」一键合并 models config(provider research-qwen, baseUrl http://127.0.0.1:8123/v1, api openai-completions, model qwen3-0.6b),409 冲突自动重试。
-- 服务:复用 python/agent_shadow/qwen_openai_server.py(spawn, env RESEARCH_QWEN_MODEL/ADAPTER 沿用 qwen-shadow 默认 D:\anaconda3\python.exe + E:\deepseek\models\Qwen3-0.6B);/v1/models 探测判定 running/starting。
-- 安全门禁(research-only tool gate):会话模型为 research-qwen 时,AgentSessionWrapper 把活动工具收窄为 research_* 工具集——set_model 时、恢复会话时、显式工具请求时均强制;浏览器工具激活被抑制;bash/files/browser/process/managed-process 保持注册但不激活;切回其他 provider 恢复原工具集。测试 qwen-tools 3/3。
-- 会话切换方式:设置页写入 provider → 新建会话 → 模型选择器选 research-qwen / qwen3-0.6b → 主机把该会话当成科研-only 会话。Qwen 仍是科研工具决策者,不是通用助手;生产会话继续由 DeepSeek 驱动。
+- 定位修正:Qwen3-0.6B LoRA 是**本地工具决策器**,不是主会话模型;主模型始终 DeepSeek(对话/理解/复现规划/复杂参数/终答)。曾错误地允许 research-qwen 作为主模型被选中(会话被 Qwen 接管 → 决策器提示引导连发工具、活动工具为空/服务端补静态目录 → Tool not found 无限重试)。
+- 修复(本轮):research-qwen 移出主 models.json 与模型下拉;AgentSessionWrapper.set_model 对 research-qwen 抛错拒绝;设置页移除「写入模型配置」;服务端**显式 tools 列表原样使用、空列表不补静态 10 工具**(仅缺省时才用 eval 目录兜底供直连演示)。
+- 路由模式(env RESEARCH_QWEN_ROUTER=1 + RESEARCH_QWEN_ADAPTER,默认关闭):每次普通用户消息前,qwen-router(复用 qwen-shadow worker)用最近会话+新消息预测下一步——**answer**/无效/建议不在活动工具集/非 research_* 一律不加指令;通过校验的建议转成 steer 前缀交给 DeepSeek 执行真实工具并据实作答。消息入口只建议一次,杜绝 not-found 死循环;建议落空即原样放行。
+- 执行与安全:工具执行、finalize/configure/execute/download 等复杂参数与状态变更全部由 DeepSeek 经宿主安全门禁完成;Qwen 只参与"要不要/哪个/简单参数"的决策,不执行。
+- 服务:8123 OpenAI 兼容 + SSE(内容块 + finish_reason + [DONE]),/v1/models 探测;设置页 Research 提供启停与状态(不再写主模型目录)。
+- 测试:qwen-router 4/4(建议过滤/活动集校验/steer 前缀)、qwen-tools 3/3;双 tsc/eslint 通过。
 
 ## 8. 训练数据均衡(evidence limit)
 

@@ -744,6 +744,54 @@ export function AppShell({
           </svg>
           {t("settings", "Settings")}
         </button>
+        <button
+          type="button"
+          onClick={() => {
+            setSettingsInitialTab("research");
+            setSettingsOpen(true);
+          }}
+          title="Research (paper projects)"
+          style={{
+            width: "100%",
+            height: 34,
+            marginTop: 6,
+            padding: "0 12px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 7,
+            background: "none",
+            border: "none",
+            borderRadius: 9,
+            color: "var(--text-muted)",
+            cursor: "pointer",
+            fontSize: 12,
+            transition: "background 0.12s, color 0.12s",
+          }}
+          onMouseEnter={(event) => {
+            event.currentTarget.style.background = "var(--bg-hover)";
+            event.currentTarget.style.color = "var(--text)";
+          }}
+          onMouseLeave={(event) => {
+            event.currentTarget.style.background = "none";
+            event.currentTarget.style.color = "var(--text-muted)";
+          }}
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4L12 3z" />
+          </svg>
+          Research
+        </button>
       </div>
     </>
   );

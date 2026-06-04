@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from eval.rag.run_retrieval_eval import load_cases, reciprocal_rank, score_rankings
+from eval.rag.run_retrieval_eval import load_cases, reciprocal_rank, render_summary, score_rankings
 
 
 class RetrievalMetricTest(unittest.TestCase):
@@ -43,6 +43,15 @@ class RetrievalMetricTest(unittest.TestCase):
             )
             with self.assertRaisesRegex(ValueError, "unknown Gold Chunk"):
                 load_cases(cases_path, {"p1-c1": 1}, expected_count=1)
+
+    def test_summary_names_the_best_method_by_mrr(self):
+        metrics = {
+            "bm25": {"hitAt1": 0.5, "hitAt5": 0.8, "mrrAt5": 0.6},
+            "dense": {"hitAt1": 0.4, "hitAt5": 0.7, "mrrAt5": 0.5},
+            "hybrid": {"hitAt1": 0.3, "hitAt5": 0.8, "mrrAt5": 0.4},
+        }
+        summary = render_summary(metrics, {"chunkCount": 37, "model": "test-model"})
+        self.assertIn("Best method by MRR@5: `bm25`", summary)
 
 
 if __name__ == "__main__":

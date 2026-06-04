@@ -131,6 +131,7 @@ def build_rankings(cases, index_dir, chunks, manifest):
 
 
 def render_summary(metrics, manifest):
+    best_method = max(metrics, key=lambda method: metrics[method]["mrrAt5"])
     lines = [
         "# DSPFM RAG Retrieval Evaluation",
         "",
@@ -138,6 +139,7 @@ def render_summary(metrics, manifest):
         f"- Corpus: {manifest['chunkCount']} chunks",
         f"- Dense model: `{manifest['model']}`",
         "- Cutoff: 5",
+        f"- Best method by MRR@5: `{best_method}`",
         "",
         "| Method | Hit@1 | Hit@5 | MRR@5 |",
         "| --- | ---: | ---: | ---: |",

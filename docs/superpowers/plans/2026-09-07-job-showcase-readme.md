@@ -16,7 +16,7 @@
 - Reference: `docs/results.md` — source of truth for evaluation values and implementation boundaries.
 - Reuse: `docs/screenshot-research.png` — product screenshot embedded in the README.
 - Reference: `package.json` — source of truth for supported npm scripts.
-- Reference: `training/data/splits/split_manifest.json` — source of truth for trajectory and evaluation split counts.
+- Reference: `training/data/splits/manifest.json` — source of truth for trajectory and evaluation split counts.
 - Reference: `resources/research-skills/*/SKILL.md` — source of truth for the three research skills.
 
 ### Task 1: Build the evidence-backed content map
@@ -26,7 +26,7 @@
 - Read: `README.md`
 - Read: `docs/results.md`
 - Read: `package.json`
-- Read: `training/data/splits/split_manifest.json`
+- Read: `training/data/splits/manifest.json`
 - Read: `resources/research-skills/paper_analysis/SKILL.md`
 - Read: `resources/research-skills/reproduction_planning/SKILL.md`
 - Read: `resources/research-skills/reproduction_execution/SKILL.md`

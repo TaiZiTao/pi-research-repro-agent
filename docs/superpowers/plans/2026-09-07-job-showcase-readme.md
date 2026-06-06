@@ -113,7 +113,7 @@ Each section must connect technology to its purpose instead of listing names alo
 
 - [ ] **Step 5: Document training and evaluation transparently**
 
-State that 257 trajectories were expanded into 511 decision samples and that the fixed evaluation contains 111 cases. Link full metrics and protocol to `docs/results.md`, and mention that dataset splitting excludes exact prompt overlap.
+State that 257 trajectories produced 682 next-action examples in the final over-tool training run and that the fixed evaluation contains 111 cases. Link full metrics and protocol to `docs/results.md`, and mention that dataset splitting excludes exact prompt overlap.
 
 - [ ] **Step 6: Add practical setup and repository navigation**
 
@@ -121,7 +121,7 @@ Use commands already defined by the repository:
 
 ```powershell
 npm install
-npm run rebuild:native
+npm run build
 npm run dev
 ```
 

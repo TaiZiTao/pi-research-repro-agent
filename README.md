@@ -29,7 +29,7 @@ Qwen3-0.6B 工具路由器采用相同的 111 条固定评测、工具目录和�
 
 ## 产品界面
 
-![科研论文复现工作台](docs/screenshot-research.png)
+![科研论文复现工作台]
 
 桌面端将对话、论文项目、Workflow 状态、引用证据、执行日志和复现产物放在同一工作台中。完整的五步操作剧本见 [使用演示](docs/research-agent-usage.md)。
 

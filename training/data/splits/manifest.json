@@ -1,0 +1,17 @@
+{
+  "source": "training\\data\\raw\\golden.jsonl",
+  "source_count": 257,
+  "train_count": 251,
+  "validation_count": 111,
+  "holdout_count": 100,
+  "excluded_exact_prompt_overlap": [
+    "overtool-casual-001",
+    "overtool-casual-002",
+    "overtool-casual-003",
+    "overtool-dangerous-002",
+    "overtool-dangerous-003",
+    "overtool-dangerous-009"
+  ],
+  "validation_sha256": "be96743d0a817fa382daadd9b18c0968501949ccf98cf8dcd291c5f4498c11a8",
+  "holdout_sha256": "1b8ab6c54b844a4812c9b2e1f35a883b6d87df6cae394967dac3a75ecd0c7fe0"
+}

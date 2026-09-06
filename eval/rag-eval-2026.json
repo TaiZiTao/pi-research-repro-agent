@@ -1,0 +1,297 @@
+{
+  "case_count": 36,
+  "hit_at_1": 0.5556,
+  "hit_at_3": 0.6667,
+  "hit_at_5": 0.75,
+  "mrr": 0.6245,
+  "rows": [
+    {
+      "id": "p1q1",
+      "paper_key": "multi-window attention transformer",
+      "query": "What is the core idea of the proposed transformer for lightweight super-resolution and how does it adapt window sizes across the network?",
+      "gold_pages": [2],
+      "returned_pages": [2, 2, 8, 3, 7],
+      "hit_rank": 1
+    },
+    {
+      "id": "p1q2",
+      "paper_key": "multi-window attention transformer",
+      "query": "How do the two attention branches in the proposed model differ: which one preserves fine details early and which one handles channel semantics later?",
+      "gold_pages": [2],
+      "returned_pages": [5, 5, 8, 4, 5],
+      "hit_rank": null
+    },
+    {
+      "id": "p1q3",
+      "paper_key": "multi-window attention transformer",
+      "query": "Which loss, optimizer and learning-rate decay schedule are used when training the model?",
+      "gold_pages": [6],
+      "returned_pages": [6, 4, 5, 5, 7],
+      "hit_rank": 1
+    },
+    {
+      "id": "p1q4",
+      "paper_key": "multi-window attention transformer",
+      "query": "Which standard benchmark datasets are used to evaluate the restored images?",
+      "gold_pages": [5],
+      "returned_pages": [5, 1, 4, 5, 6],
+      "hit_rank": 1
+    },
+    {
+      "id": "p1q5",
+      "paper_key": "multi-window attention transformer",
+      "query": "At which stages of training is the learning rate reduced?",
+      "gold_pages": [6],
+      "returned_pages": [6, 5, 8, 1, 2],
+      "hit_rank": 1
+    },
+    {
+      "id": "p2q1",
+      "paper_key": "AMCANet",
+      "query": "What is the main idea of the proposed architecture-guided network for efficient super-resolution?",
+      "gold_pages": [1],
+      "returned_pages": [2, 2, 1, 3, 8],
+      "hit_rank": 3
+    },
+    {
+      "id": "p2q2",
+      "paper_key": "AMCANet",
+      "query": "What building blocks form the network backbone and what function does the feature gating component serve?",
+      "gold_pages": [2],
+      "returned_pages": [2, 2, 3, 8, 1],
+      "hit_rank": 1
+    },
+    {
+      "id": "p2q3",
+      "paper_key": "AMCANet",
+      "query": "How is the model trained: which loss, optimizer and learning-rate schedule are used?",
+      "gold_pages": [6],
+      "returned_pages": [6, 1, 2, 3, 4],
+      "hit_rank": 1
+    },
+    {
+      "id": "p2q4",
+      "paper_key": "AMCANet",
+      "query": "How many model variants are trained and how do they differ in depth, width and attention heads?",
+      "gold_pages": [6],
+      "returned_pages": [6, 1, 2, 2, 3],
+      "hit_rank": 1
+    },
+    {
+      "id": "p2q5",
+      "paper_key": "AMCANet",
+      "query": "What inference speed advantages does the model report compared with other lightweight networks?",
+      "gold_pages": [7],
+      "returned_pages": [7, 6, 7, 2, 8],
+      "hit_rank": 1
+    },
+    {
+      "id": "p3q1",
+      "paper_key": "Dual-domain",
+      "query": "What is the main idea of the dual-domain modulation approach for lightweight super-resolution?",
+      "gold_pages": [1],
+      "returned_pages": [1, 2, 9, 1, 3],
+      "hit_rank": 1
+    },
+    {
+      "id": "p3q2",
+      "paper_key": "Dual-domain",
+      "query": "What roles do the two modulation modules play, one for spatial features and one for frequency features?",
+      "gold_pages": [3],
+      "returned_pages": [2, 3, 8, 3, 9],
+      "hit_rank": 2
+    },
+    {
+      "id": "p3q3",
+      "paper_key": "Dual-domain",
+      "query": "How is the final output supervised: which spatial and frequency losses are combined?",
+      "gold_pages": [3],
+      "returned_pages": [8, 2, 5, 7, 1],
+      "hit_rank": null
+    },
+    {
+      "id": "p3q4",
+      "paper_key": "Dual-domain",
+      "query": "On which dataset is the model trained and on which benchmarks is it evaluated?",
+      "gold_pages": [6],
+      "returned_pages": [6, 8, 6, 1, 2],
+      "hit_rank": 1
+    },
+    {
+      "id": "p3q5",
+      "paper_key": "Dual-domain",
+      "query": "What does the ablation table report about removing the dynamic components in terms of parameters and accuracy?",
+      "gold_pages": [9],
+      "returned_pages": [7, 2, 6, 8, 9],
+      "hit_rank": 5
+    },
+    {
+      "id": "p4q1",
+      "paper_key": "Focus-guided",
+      "query": "What is the main idea of guiding super-resolution feature fusion with visual focus information?",
+      "gold_pages": [1],
+      "returned_pages": [3, 7, 12, 1, 2],
+      "hit_rank": 4
+    },
+    {
+      "id": "p4q2",
+      "paper_key": "Focus-guided",
+      "query": "Which three proposed components contribute to the final quality and how is their impact measured?",
+      "gold_pages": [7],
+      "returned_pages": [12, 1, 2, 2, 7],
+      "hit_rank": 5
+    },
+    {
+      "id": "p4q3",
+      "paper_key": "Focus-guided",
+      "query": "What training image set is used and how many images does it contain?",
+      "gold_pages": [6],
+      "returned_pages": [2, 6, 3, 8, 12],
+      "hit_rank": 2
+    },
+    {
+      "id": "p4q4",
+      "paper_key": "Focus-guided",
+      "query": "At which upscale factor is the model trained and what patch and batch sizes are used?",
+      "gold_pages": [7],
+      "returned_pages": [7, 2, 11, 6, 6],
+      "hit_rank": 1
+    },
+    {
+      "id": "p4q5",
+      "paper_key": "Focus-guided",
+      "query": "Which benchmarks and complexity columns appear in the quantitative comparison table?",
+      "gold_pages": [10],
+      "returned_pages": [7, 11, 1, 2, 3],
+      "hit_rank": null
+    },
+    {
+      "id": "p5q1",
+      "paper_key": "Neighborhood constrained attention",
+      "query": "What is the core idea of constraining attention with neighborhood information for lightweight super-resolution?",
+      "gold_pages": [1],
+      "returned_pages": [1, 8, 2, 3, 5],
+      "hit_rank": 1
+    },
+    {
+      "id": "p5q2",
+      "paper_key": "Neighborhood constrained attention",
+      "query": "How is the neighborhood constraint incorporated into the attention computation?",
+      "gold_pages": [3],
+      "returned_pages": [3, 2, 3, 3, 4],
+      "hit_rank": 1
+    },
+    {
+      "id": "p5q3",
+      "paper_key": "Neighborhood constrained attention",
+      "query": "Which training data, loss and optimizer settings are reported?",
+      "gold_pages": [6],
+      "returned_pages": [6, 11, 6, 2, 2],
+      "hit_rank": 1
+    },
+    {
+      "id": "p5q4",
+      "paper_key": "Neighborhood constrained attention",
+      "query": "On which benchmark datasets is the method compared and what are the reported accuracy gains?",
+      "gold_pages": [7],
+      "returned_pages": [6, 8, 1, 2, 6],
+      "hit_rank": null
+    },
+    {
+      "id": "p6q1",
+      "paper_key": "PDAH-SR",
+      "query": "What is the main idea of the prior-driven direction-aware hierarchical approach for lightweight super-resolution?",
+      "gold_pages": [1],
+      "returned_pages": [1, 2, 3, 4, 1],
+      "hit_rank": 1
+    },
+    {
+      "id": "p6q2",
+      "paper_key": "PDAH-SR",
+      "query": "How are direction and frequency cues organized hierarchically inside the model?",
+      "gold_pages": [3],
+      "returned_pages": [1, 2, 4, 9, 1],
+      "hit_rank": null
+    },
+    {
+      "id": "p6q3",
+      "paper_key": "PDAH-SR",
+      "query": "Which training configuration (data, patch, optimizer) is reported?",
+      "gold_pages": [5],
+      "returned_pages": [5, 5, 5, 11, 1],
+      "hit_rank": 1
+    },
+    {
+      "id": "p6q4",
+      "paper_key": "PDAH-SR",
+      "query": "What do the comparison tables show on common benchmarks in terms of accuracy?",
+      "gold_pages": [8],
+      "returned_pages": [12, 6, 11, 1, 2],
+      "hit_rank": null
+    },
+    {
+      "id": "p7q1",
+      "paper_key": "PromptSR",
+      "query": "What is the core idea of prompting in a cascade for lightweight super-resolution?",
+      "gold_pages": [1],
+      "returned_pages": [1, 1, 2, 2, 13],
+      "hit_rank": 1
+    },
+    {
+      "id": "p7q2",
+      "paper_key": "PromptSR",
+      "query": "How are prompt tokens used across the cascade stages of the network?",
+      "gold_pages": [3],
+      "returned_pages": [3, 3, 4, 5, 1],
+      "hit_rank": 1
+    },
+    {
+      "id": "p7q3",
+      "paper_key": "PromptSR",
+      "query": "Which loss and optimizer settings are used during training?",
+      "gold_pages": [7],
+      "returned_pages": [7, 4, 1, 3, 3],
+      "hit_rank": 1
+    },
+    {
+      "id": "p7q4",
+      "paper_key": "PromptSR",
+      "query": "On which benchmark datasets is the model evaluated and how does it rank?",
+      "gold_pages": [6],
+      "returned_pages": [11, 8, 1, 2, 5],
+      "hit_rank": null
+    },
+    {
+      "id": "p8q1",
+      "paper_key": "Frequency-Selection",
+      "query": "What is the core idea of the progressive patch transformer with frequency selection for super-resolution?",
+      "gold_pages": [1],
+      "returned_pages": [1, 2, 5, 5, 1],
+      "hit_rank": 1
+    },
+    {
+      "id": "p8q2",
+      "paper_key": "Frequency-Selection",
+      "query": "How are patches processed progressively and how is frequency information selected across stages?",
+      "gold_pages": [3],
+      "returned_pages": [6, 14, 5, 7, 11],
+      "hit_rank": null
+    },
+    {
+      "id": "p8q3",
+      "paper_key": "Frequency-Selection",
+      "query": "What training data and optimization settings are reported?",
+      "gold_pages": [9],
+      "returned_pages": [8, 9, 1, 4, 8],
+      "hit_rank": 2
+    },
+    {
+      "id": "p8q4",
+      "paper_key": "Frequency-Selection",
+      "query": "On which benchmarks is the final model compared and what is its complexity?",
+      "gold_pages": [11],
+      "returned_pages": [1, 2, 6, 9, 9],
+      "hit_rank": null
+    }
+  ]
+}

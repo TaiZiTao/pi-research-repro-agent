@@ -20,6 +20,10 @@ Local-first · No internal server · Cross-platform
 
 </div>
 
+## History notice
+
+This project's code history dates back to April 9, 2026. The current GitHub repository was assembled and published from existing code and development records on September 9, 2026. The commit dates were reconstructed to represent the original development timeline; they do not represent the GitHub repository's creation or first-push date.
+
 ## Screenshots
 
 ![Pi Agent Desktop workspace with a conversation, agent response, and code preview](./images/app-workspace.jpg)
